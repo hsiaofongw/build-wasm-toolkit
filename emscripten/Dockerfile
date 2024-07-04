@@ -12,8 +12,9 @@ COPY --from=binaryen-build /build/binaryen /build/binaryen
 WORKDIR /build
 ENV NODE_JS_ROOT="/build/node/bin"
 ENV BINARYEN_ROOT="/build/binaryen/bin"
-ENV PATH="${BINARYEN_ROOT}:${NODE_JS_ROOT}:${PATH}"
 ENV EM_LLVM_ROOT="/build/llvm/bin"
+ENV PATH="${EM_LLVM_ROOT}:${BINARYEN_ROOT}:${NODE_JS_ROOT}:${PATH}"
 RUN git clone https://github.com/emscripten-core/emscripten.git
+RUN echo "EM_LLVM_ROOT=\"${EM_LLVM_ROOT}\"" >> $HOME/.emscripten
 WORKDIR /build/emscripten
-RUN ./bootstrap
+# RUN ./bootstrap
