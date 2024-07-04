@@ -307,7 +307,7 @@ export function Main() {
         )}
       </Box>
 
-      <Box sx={{ marginTop: "10px" }}>
+      <Box sx={{ marginTop: "16px" }}>
         <FormControl component="fieldset">
           <FormLabel component="legend">摘要算法</FormLabel>
           <FormGroup row>
@@ -332,7 +332,7 @@ export function Main() {
           marginTop: "10px",
           display: "flex",
           flexDirection: "column",
-          rowGap: "10px",
+          rowGap: "16px",
         }}
       >
         {query.isLoading ? (
