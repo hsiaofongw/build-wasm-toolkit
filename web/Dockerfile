@@ -38,9 +38,10 @@ RUN mkdir output
 RUN wasm-ld \
   --export=md5_buffer \
   --export=sha1_buffer \
+  --export=sha224_buffer \
   --export=sha256_buffer \
-  --export=sha512_buffer \
   --export=sha384_buffer \
+  --export=sha512_buffer \
   --export=sm3_buffer \
   --no-entry \
   --import-memory=importobjs,shm0 \
