@@ -1,7 +1,18 @@
+"use client";
+
+import { Fragment, useState } from "react";
+import { Main } from "./main";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 export default function Page() {
-  return <div>
-    <h1>你好，世界！👋</h1>
-    <div>hello hello</div>
-  </div>
+  const [text, setText] = useState("");
+  return (
+    <Fragment>
+      <QueryClientProvider client={queryClient}>
+        <Main />
+      </QueryClientProvider>
+    </Fragment>
+  );
 }
