@@ -122,7 +122,10 @@ function FileDigestResult(props: {
 
   return (
     <Box>
-      <Box>文件名：{props.file.file.name}</Box>
+      <Box>
+        文件名：{props.file.file.name}&nbsp;（{props.file.file.size}&nbsp;字节）
+      </Box>
+
       <Box sx={{ marginTop: "6px" }}>
         {!props.checkflags ? (
           "请选择算法"
@@ -213,13 +216,19 @@ function computeDigest(
   inputData: Uint8Array,
   checkflags: DigestCheckFlag
 ): Promise<DigestResult[]> {
-  const shm0 = new WebAssembly.Memory({ initial: 2 });
+  const numPages = 2 * Math.ceil(inputData.length / (64 * 2 ** 10));
+  console.log("NumPages:", numPages);
+  const shm0 = new WebAssembly.Memory({
+    initial: numPages,
+  });
+
   const dview = new DataView(shm0.buffer);
   const msglen = inputData.length;
   const buf_start = 0;
   for (let i = 0; i < msglen; ++i) {
     dview.setUint8(buf_start + i, inputData[i]);
   }
+  console.log("[dbg] size:", msglen);
 
   return WebAssembly.instantiateStreaming(fetch(pathToToolchainWasm), {
     importobjs: { shm0 },
