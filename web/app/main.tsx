@@ -116,7 +116,9 @@ function FileDigestResult(props: {
       props.checkflags,
     ],
     queryFn: () => {
-      return computeDigest(new Uint8Array(props.file.data), props.checkflags);
+      return props.file.data.byteLength > 0
+        ? computeDigest(new Uint8Array(props.file.data), props.checkflags)
+        : Promise.resolve([]);
     },
   });
 
@@ -195,6 +197,9 @@ function DropAccept(props: { onLoaded: (loadedFile: LoadedFile) => void }) {
                   }
                 }
               });
+              reader.addEventListener("error", (e) => {
+                console.error("Reader error:", e);
+              });
 
               reader.readAsArrayBuffer(file);
             } catch (e) {
@@ -217,18 +222,18 @@ function computeDigest(
   checkflags: DigestCheckFlag
 ): Promise<DigestResult[]> {
   const numPages = 2 * Math.ceil(inputData.length / (64 * 2 ** 10));
-  console.log("NumPages:", numPages);
+  const msglen = inputData.length;
+  console.log("[dbg] size:", msglen);
+  console.log("[dbg] NumPages:", numPages);
   const shm0 = new WebAssembly.Memory({
     initial: numPages,
   });
 
   const dview = new DataView(shm0.buffer);
-  const msglen = inputData.length;
   const buf_start = 0;
   for (let i = 0; i < msglen; ++i) {
     dview.setUint8(buf_start + i, inputData[i]);
   }
-  console.log("[dbg] size:", msglen);
 
   return WebAssembly.instantiateStreaming(fetch(pathToToolchainWasm), {
     importobjs: { shm0 },
@@ -367,7 +372,7 @@ export function Main() {
     queryFn: () => {
       const enc = new TextEncoder();
       const utf8Data = enc.encode(text);
-      return computeDigest(utf8Data, checkflags);
+      return utf8Data.length > 0 ? computeDigest(utf8Data, checkflags) : [];
     },
   });
 
