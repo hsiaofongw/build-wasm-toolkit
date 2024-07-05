@@ -13,7 +13,8 @@ import {
   TextField,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { propagateServerField } from "next/dist/server/lib/render-server";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 function alignToMultiplesOf(size: number, n: number = 64) {
   return Math.ceil(size / n) * n;
@@ -103,6 +104,248 @@ function DisplayDigestResult(props: { item: DigestResult }) {
   );
 }
 
+function FileDigestResult(props: {
+  file: LoadedFile;
+  checkflags: DigestCheckFlag;
+}) {
+  const digestQuery = useQuery({
+    queryKey: [
+      "file",
+      props.file.file.name,
+      props.file.data.byteLength,
+      props.checkflags,
+    ],
+    queryFn: () => {
+      return computeDigest(new Uint8Array(props.file.data), props.checkflags);
+    },
+  });
+
+  return (
+    <Box>
+      <Box>文件名：{props.file.file.name}</Box>
+      <Box sx={{ marginTop: "6px" }}>
+        {!props.checkflags ? (
+          "请选择算法"
+        ) : digestQuery.isLoading ? (
+          <Delayed delayMs={1000}>
+            <LinearProgress />
+          </Delayed>
+        ) : (
+          (digestQuery.data ?? []).map((digestResult) => (
+            <DisplayDigestResult
+              key={digestResult.algorithmName}
+              item={digestResult}
+            />
+          ))
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+type LoadedFile = { file: File; data: ArrayBuffer };
+function DropAccept(props: { onLoaded: (loadedFile: LoadedFile) => void }) {
+  const [entered, setEntered] = useState(false);
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        borderStyle: "dashed",
+        borderRadius: "14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEntered(true);
+      }}
+      onDragLeave={(e) => {
+        setEntered(false);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEntered(false);
+        const items = e.dataTransfer.items;
+        const files = e.dataTransfer.files;
+        if (items) {
+          for (let i = 0; i < items.length; ++i) {
+            const item = items[i];
+            if (item.kind !== "file") {
+              continue;
+            }
+
+            try {
+              const file = item.getAsFile();
+              const reader = new FileReader();
+              reader.addEventListener("loadend", (e) => {
+                if (e.loaded) {
+                  if (reader.result instanceof ArrayBuffer) {
+                    props.onLoaded({ file, data: reader.result });
+                  }
+                }
+              });
+
+              reader.readAsArrayBuffer(file);
+            } catch (e) {
+              console.log(e);
+              continue;
+            }
+          }
+        } else if (files) {
+          console.log("FILES:", files);
+        }
+      }}
+    >
+      {entered ? "松开鼠标放下" : "拖拽文件到这里"}
+    </Box>
+  );
+}
+
+function computeDigest(
+  inputData: Uint8Array,
+  checkflags: DigestCheckFlag
+): Promise<DigestResult[]> {
+  const shm0 = new WebAssembly.Memory({ initial: 2 });
+  const dview = new DataView(shm0.buffer);
+  const msglen = inputData.length;
+  const buf_start = 0;
+  for (let i = 0; i < msglen; ++i) {
+    dview.setUint8(buf_start + i, inputData[i]);
+  }
+
+  return WebAssembly.instantiateStreaming(fetch(pathToToolchainWasm), {
+    importobjs: { shm0 },
+  })
+    .then((vm) => {
+      const md5_buffer = vm.instance.exports.md5_buffer as any;
+      const md5_result_buf = alignToMultiplesOf(buf_start + msglen);
+      const md5_result_len = 16;
+
+      const sha1_buffer = vm.instance.exports.sha1_buffer as any;
+      const sha1_result_buf = alignToMultiplesOf(
+        md5_result_buf + md5_result_len
+      );
+      const sha1_result_len = 20;
+
+      const sha224_buffer = vm.instance.exports.sha224_buffer as any;
+      const sha224_result_buf = alignToMultiplesOf(
+        sha1_result_buf + sha1_result_len
+      );
+      const sha224_result_len = 224 / 8;
+
+      const sha256_buffer = vm.instance.exports.sha256_buffer as any;
+      const sha256_result_buf = alignToMultiplesOf(
+        sha224_result_buf + sha224_result_len
+      );
+      const sha256_result_len = 256 / 8;
+
+      const sha384_buffer = vm.instance.exports.sha384_buffer as any;
+      const sha384_result_buf = alignToMultiplesOf(
+        sha256_result_buf + sha256_result_len
+      );
+      const sha384_result_len = 384 / 8;
+
+      const sha512_buffer = vm.instance.exports.sha512_buffer as any;
+      const sha512_result_buf = alignToMultiplesOf(
+        sha384_result_buf + sha384_result_len
+      );
+      const sha512_result_len = 512 / 8;
+
+      const sm3_buffer = vm.instance.exports.sm3_buffer as any;
+      const sm3_result_buf = alignToMultiplesOf(
+        sha512_result_buf + sha512_result_len
+      );
+      const sm3_result_len = 32;
+
+      let result: DigestResult[] = [];
+      if (checkflags & DigestCheckFlag.MD5) {
+        md5_buffer(buf_start, msglen, md5_result_buf);
+        result.push({
+          algorithmName: DigestCheckFlag.MD5,
+          value: new Uint8Array(shm0.buffer, md5_result_buf, md5_result_len),
+        });
+      }
+
+      if (checkflags & DigestCheckFlag.SHA1) {
+        sha1_buffer(buf_start, msglen, sha1_result_buf);
+        result.push({
+          algorithmName: DigestCheckFlag.SHA1,
+          value: new Uint8Array(shm0.buffer, sha1_result_buf, sha1_result_len),
+        });
+      }
+
+      if (checkflags & DigestCheckFlag.SHA224) {
+        sha224_buffer(buf_start, msglen, sha224_result_buf);
+        result.push({
+          algorithmName: DigestCheckFlag.SHA224,
+          value: new Uint8Array(
+            shm0.buffer,
+            sha224_result_buf,
+            sha224_result_len
+          ),
+        });
+      }
+
+      if (checkflags & DigestCheckFlag.SHA256) {
+        sha256_buffer(buf_start, msglen, sha256_result_buf);
+        result.push({
+          algorithmName: DigestCheckFlag.SHA256,
+          value: new Uint8Array(
+            shm0.buffer,
+            sha256_result_buf,
+            sha256_result_len
+          ),
+        });
+      }
+
+      if (checkflags & DigestCheckFlag.SHA384) {
+        sha384_buffer(buf_start, msglen, sha384_result_buf);
+        result.push({
+          algorithmName: DigestCheckFlag.SHA384,
+          value: new Uint8Array(
+            shm0.buffer,
+            sha384_result_buf,
+            sha384_result_len
+          ),
+        });
+      }
+
+      if (checkflags & DigestCheckFlag.SHA512) {
+        sha512_buffer(buf_start, msglen, sha512_result_buf);
+        result.push({
+          algorithmName: DigestCheckFlag.SHA512,
+          value: new Uint8Array(
+            shm0.buffer,
+            sha512_result_buf,
+            sha512_result_len
+          ),
+        });
+      }
+
+      if (checkflags & DigestCheckFlag.SM3) {
+        sm3_buffer(buf_start, msglen, sm3_result_buf);
+        result.push({
+          algorithmName: DigestCheckFlag.SM3,
+          value: new Uint8Array(shm0.buffer, sm3_result_buf, sm3_result_len),
+        });
+      }
+
+      return result;
+    })
+    .catch((e) => {
+      console.error(e);
+      return [] as DigestResult[];
+    });
+}
+
 const pathToToolchainWasm = "toolchain.wasm";
 export function Main() {
   const [inputType, setInputType] = useState<InputType>(allInputTypes[0]);
@@ -110,156 +353,16 @@ export function Main() {
     DigestCheckFlag.NONE
   );
   const [text, setText] = useState("");
-  const query = useQuery({
-    queryKey: [text, checkflags],
+  const textDigestQuery = useQuery({
+    queryKey: ["text", text, checkflags],
     queryFn: () => {
-      const shm0 = new WebAssembly.Memory({ initial: 2 });
-      const dview = new DataView(shm0.buffer);
       const enc = new TextEncoder();
       const utf8Data = enc.encode(text);
-      const msglen = utf8Data.length;
-      const buf_start = alignToMultiplesOf(0);
-      for (let i = 0; i < msglen; ++i) {
-        dview.setUint8(buf_start + i, utf8Data[i]);
-      }
-
-      return WebAssembly.instantiateStreaming(fetch(pathToToolchainWasm), {
-        importobjs: { shm0 },
-      })
-        .then((vm) => {
-          const md5_buffer = vm.instance.exports.md5_buffer as any;
-          const md5_result_buf = alignToMultiplesOf(buf_start + msglen);
-          const md5_result_len = 16;
-
-          const sha1_buffer = vm.instance.exports.sha1_buffer as any;
-          const sha1_result_buf = alignToMultiplesOf(
-            md5_result_buf + md5_result_len
-          );
-          const sha1_result_len = 20;
-
-          const sha224_buffer = vm.instance.exports.sha224_buffer as any;
-          const sha224_result_buf = alignToMultiplesOf(
-            sha1_result_buf + sha1_result_len
-          );
-          const sha224_result_len = 224 / 8;
-
-          const sha256_buffer = vm.instance.exports.sha256_buffer as any;
-          const sha256_result_buf = alignToMultiplesOf(
-            sha224_result_buf + sha224_result_len
-          );
-          const sha256_result_len = 256 / 8;
-
-          const sha384_buffer = vm.instance.exports.sha384_buffer as any;
-          const sha384_result_buf = alignToMultiplesOf(
-            sha256_result_buf + sha256_result_len
-          );
-          const sha384_result_len = 384 / 8;
-
-          const sha512_buffer = vm.instance.exports.sha512_buffer as any;
-          const sha512_result_buf = alignToMultiplesOf(
-            sha384_result_buf + sha384_result_len
-          );
-          const sha512_result_len = 512 / 8;
-
-          const sm3_buffer = vm.instance.exports.sm3_buffer as any;
-          const sm3_result_buf = alignToMultiplesOf(
-            sha512_result_buf + sha512_result_len
-          );
-          const sm3_result_len = 32;
-
-          let result: DigestResult[] = [];
-          if (checkflags & DigestCheckFlag.MD5) {
-            md5_buffer(buf_start, msglen, md5_result_buf);
-            result.push({
-              algorithmName: DigestCheckFlag.MD5,
-              value: new Uint8Array(
-                shm0.buffer,
-                md5_result_buf,
-                md5_result_len
-              ),
-            });
-          }
-
-          if (checkflags & DigestCheckFlag.SHA1) {
-            sha1_buffer(buf_start, msglen, sha1_result_buf);
-            result.push({
-              algorithmName: DigestCheckFlag.SHA1,
-              value: new Uint8Array(
-                shm0.buffer,
-                sha1_result_buf,
-                sha1_result_len
-              ),
-            });
-          }
-
-          if (checkflags & DigestCheckFlag.SHA224) {
-            sha224_buffer(buf_start, msglen, sha224_result_buf);
-            result.push({
-              algorithmName: DigestCheckFlag.SHA224,
-              value: new Uint8Array(
-                shm0.buffer,
-                sha224_result_buf,
-                sha224_result_len
-              ),
-            });
-          }
-
-          if (checkflags & DigestCheckFlag.SHA256) {
-            sha256_buffer(buf_start, msglen, sha256_result_buf);
-            result.push({
-              algorithmName: DigestCheckFlag.SHA256,
-              value: new Uint8Array(
-                shm0.buffer,
-                sha256_result_buf,
-                sha256_result_len
-              ),
-            });
-          }
-
-          if (checkflags & DigestCheckFlag.SHA384) {
-            sha384_buffer(buf_start, msglen, sha384_result_buf);
-            result.push({
-              algorithmName: DigestCheckFlag.SHA384,
-              value: new Uint8Array(
-                shm0.buffer,
-                sha384_result_buf,
-                sha384_result_len
-              ),
-            });
-          }
-
-          if (checkflags & DigestCheckFlag.SHA512) {
-            sha512_buffer(buf_start, msglen, sha512_result_buf);
-            result.push({
-              algorithmName: DigestCheckFlag.SHA512,
-              value: new Uint8Array(
-                shm0.buffer,
-                sha512_result_buf,
-                sha512_result_len
-              ),
-            });
-          }
-
-          if (checkflags & DigestCheckFlag.SM3) {
-            sm3_buffer(buf_start, msglen, sm3_result_buf);
-            result.push({
-              algorithmName: DigestCheckFlag.SM3,
-              value: new Uint8Array(
-                shm0.buffer,
-                sm3_result_buf,
-                sm3_result_len
-              ),
-            });
-          }
-
-          return result;
-        })
-        .catch((e) => {
-          console.error(e);
-          return [] as DigestResult[];
-        });
+      return computeDigest(utf8Data, checkflags);
     },
   });
+
+  const [loadedFiles, setLoadedFiles] = useState<LoadedFile[]>([]);
 
   const { getName } = useHashAlgNameMap();
 
@@ -283,7 +386,6 @@ export function Main() {
           />
           <FormControlLabel
             value={InputType.File}
-            disabled
             control={<Radio />}
             label="文件"
           />
@@ -301,7 +403,13 @@ export function Main() {
             }}
           />
         ) : inputType === InputType.File ? (
-          <Box>未实现</Box>
+          <Box sx={{ height: "200px", width: "100%" }}>
+            <DropAccept
+              onLoaded={(f) => {
+                setLoadedFiles((prev) => prev.concat([f]));
+              }}
+            />
+          </Box>
         ) : (
           <Box>未知类型</Box>
         )}
@@ -335,14 +443,22 @@ export function Main() {
           rowGap: "16px",
         }}
       >
-        {query.isLoading ? (
-          <Delayed delayMs={3000}>
-            <LinearProgress />
-          </Delayed>
-        ) : (
-          query.data.map((item) => (
-            <DisplayDigestResult key={item.algorithmName} item={item} />
+        {inputType === InputType.Text ? (
+          textDigestQuery.isLoading ? (
+            <Delayed delayMs={3000}>
+              <LinearProgress />
+            </Delayed>
+          ) : (
+            textDigestQuery.data.map((item) => (
+              <DisplayDigestResult key={item.algorithmName} item={item} />
+            ))
+          )
+        ) : inputType === InputType.File ? (
+          loadedFiles.map((f, idx) => (
+            <FileDigestResult key={idx} file={f} checkflags={checkflags} />
           ))
+        ) : (
+          <>未知输入类型</>
         )}
       </Box>
     </Box>
