@@ -13,8 +13,7 @@ import {
   TextField,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { propagateServerField } from "next/dist/server/lib/render-server";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 function alignToMultiplesOf(size: number, n: number = 64) {
   return Math.ceil(size / n) * n;
@@ -99,7 +98,9 @@ function DisplayDigestResult(props: { item: DigestResult }) {
   return (
     <Box>
       <Box>{getName(props.item.algorithmName)}</Box>
-      <Box sx={{ marginTop: "6px" }}>{toHexString(props.item.value)}</Box>
+      <Box sx={{ marginTop: "6px", wordBreak: "break-all" }}>
+        {toHexString(props.item.value)}
+      </Box>
     </Box>
   );
 }
@@ -128,7 +129,14 @@ function FileDigestResult(props: {
         文件名：{props.file.file.name}&nbsp;（{props.file.file.size}&nbsp;字节）
       </Box>
 
-      <Box sx={{ marginTop: "6px" }}>
+      <Box
+        sx={{
+          marginTop: "16px",
+          display: "flex",
+          flexDirection: "column",
+          rowGap: "16px",
+        }}
+      >
         {!props.checkflags ? (
           "请选择算法"
         ) : digestQuery.isLoading ? (
@@ -179,7 +187,6 @@ function DropAccept(props: { onLoaded: (loadedFile: LoadedFile) => void }) {
         e.stopPropagation();
         setEntered(false);
         const items = e.dataTransfer.items;
-        const files = e.dataTransfer.files;
         if (items) {
           for (let i = 0; i < items.length; ++i) {
             const item = items[i];
@@ -207,8 +214,6 @@ function DropAccept(props: { onLoaded: (loadedFile: LoadedFile) => void }) {
               continue;
             }
           }
-        } else if (files) {
-          console.log("FILES:", files);
         }
       }}
     >
@@ -223,14 +228,13 @@ function computeDigest(
 ): Promise<DigestResult[]> {
   const numPages = 2 * Math.ceil(inputData.length / (64 * 2 ** 10));
   const msglen = inputData.length;
-  console.log("[dbg] size:", msglen);
-  console.log("[dbg] NumPages:", numPages);
+
   const shm0 = new WebAssembly.Memory({
     initial: numPages,
   });
 
   const dview = new DataView(shm0.buffer);
-  const buf_start = 0;
+  const buf_start = 2048;
   for (let i = 0; i < msglen; ++i) {
     dview.setUint8(buf_start + i, inputData[i]);
   }
