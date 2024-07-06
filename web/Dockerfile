@@ -1,4 +1,4 @@
-ARG TAGREV
+ARG TAGREV=test
 
 FROM mycoreutils:${TAGREV} AS coreutils-build
 FROM myemcc:${TAGREV} AS emcc-build
@@ -55,19 +55,15 @@ RUN wasm-ld \
   relocatable/sm3.rel.wasm \
   -o output/toolchain.wasm
 
-FROM mynodejs:${TAGREV} AS next
+FROM node:lts AS next
 
 WORKDIR /build/web
-
-ENV PATH="/root/local/node/bin:${PATH}"
-
 COPY . .
-COPY --from=wasm /build/output public
-
 RUN npm ci && npm run build
 
 FROM nginx:1.27.0 AS web
 
 COPY --from=next /build/web/out /usr/share/nginx/html
+COPY --from=wasm /build/output /usr/share/nginx/html
 COPY nginx-conf.d/default.conf /etc/nginx/conf.d
 
