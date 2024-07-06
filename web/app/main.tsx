@@ -460,6 +460,7 @@ export function Main() {
           <TextField
             fullWidth
             multiline
+            rows={5}
             value={text}
             onChange={(e) => {
               setText(e.target.value ?? "");
