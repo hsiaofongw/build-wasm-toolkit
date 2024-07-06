@@ -5,7 +5,15 @@
 ## 构建
 
 ```bash
-tagRevision=test
-tools/build.sh $tagRevision
-web/build.sh $tagRevision
+tag=myweb:test
+web/build.sh $tag
 ```
+
+## 部署
+
+```bash
+tag=myweb:test
+docker run -dit --rm -p 10080:80 $tag
+```
+
+访问 [localhost:10080](http://localhost:10080)。

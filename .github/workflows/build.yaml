@@ -1,12 +1,11 @@
 name: Build
-on: [workflow_dispatch]
+on: 
+  - workflow_dispatch
+  - push
 jobs:
   job0:
     runs-on: ubuntu-22.04
     steps:
-      - run: echo "你好！👋"
-      - run: uname -a
-      - run: lsb_release -a
       - name: Checking out repo
         uses: actions/checkout@v4
       - name: Listing files
@@ -23,6 +22,6 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: web
-          target: next
+          target: web
           push: true
           tags: ghcr.io/${{ github.repository }}:latest
