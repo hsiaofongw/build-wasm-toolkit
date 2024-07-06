@@ -1,9 +1,11 @@
-FROM mycoreutils:0.1 AS coreutils-build
-FROM myemcc:0.1 as emcc-build
-FROM mywabt:0.1 as wabt-build
-FROM myllvm:0.1 as llvm-build
+ARG TAGREV
 
-FROM myubuntu:0.1
+FROM mycoreutils:${TAGREV} AS coreutils-build
+FROM myemcc:${TAGREV} AS emcc-build
+FROM mywabt:${TAGREV} AS wabt-build
+FROM myllvm:${TAGREV} AS llvm-build
+
+FROM myubuntu:${TAGREV} AS wasm
 
 WORKDIR /build
 
@@ -52,3 +54,16 @@ RUN wasm-ld \
   relocatable/sha512.rel.wasm \
   relocatable/sm3.rel.wasm \
   -o output/toolchain.wasm
+
+FROM mynodejs:${TAGREV} AS web
+
+ARG WASM_IMAGE_TAG
+
+WORKDIR /build/web
+
+ENV PATH="/root/local/node/bin:${PATH}"
+
+COPY . .
+COPY --from=wasm /build/output public
+
+RUN npm ci && npm run build
