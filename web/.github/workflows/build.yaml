@@ -1,0 +1,9 @@
+name: Build
+on: [workflow_dispatch]
+jobs:
+  job0:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo "你好！👋"
+      - run: uname -a
+      - run: lsb_release -a
