@@ -55,9 +55,7 @@ RUN wasm-ld \
   relocatable/sm3.rel.wasm \
   -o output/toolchain.wasm
 
-FROM mynodejs:${TAGREV} AS web
-
-ARG WASM_IMAGE_TAG
+FROM mynodejs:${TAGREV} AS next
 
 WORKDIR /build/web
 
@@ -67,3 +65,9 @@ COPY . .
 COPY --from=wasm /build/output public
 
 RUN npm ci && npm run build
+
+FROM nginx:1.27.0 AS web
+
+COPY --from=next /build/web/out /usr/share/nginx/html
+COPY nginx-conf.d/default.conf /etc/nginx/conf.d
+

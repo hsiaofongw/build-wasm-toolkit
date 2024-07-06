@@ -4,4 +4,4 @@ web/node_modules
 web/.next
 *.img
 *.wasm
-
+out
