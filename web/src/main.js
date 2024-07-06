@@ -6,6 +6,10 @@ function alignToMultiplesOf(size, n = 256) {
 
 const wasmFile = "toolchain.wasm";
 
+const size_per_algorithm = { sha256: 256 / 8 };
+const base_workspace_addr = 2 ** 20;
+const size_per_page = 2 ** 16;
+
 async function test(filename) {
   const data = await fetch(filename)
     .then((r) => r.arrayBuffer())
@@ -14,15 +18,18 @@ async function test(filename) {
   console.log("Filename:", filename);
   console.log("Size:", data.length);
 
-  const shm0 = new WebAssembly.Memory({
-    initial: 2 * Math.ceil(data.length / 2 ** 16),
-  });
-
-  const msg_buf = 2048;
   const msg_len = data.length;
   const msg_buf_len = alignToMultiplesOf(msg_len, 64);
+  const result_len = size_per_algorithm["sha256"];
+  const msg_buf = base_workspace_addr;
+  const total_size_needed =
+    base_workspace_addr + msg_buf_len + alignToMultiplesOf(result_len);
+
+  const shm0 = new WebAssembly.Memory({
+    initial: Math.ceil(total_size_needed / size_per_page),
+  });
+
   const result_buf = msg_buf + msg_buf_len;
-  const result_len = 256 / 8;
   const dview = new DataView(shm0.buffer);
   for (let i = 0; i < data.length; ++i) {
     dview.setUint8(msg_buf + i, data[i]);
@@ -56,6 +63,17 @@ async function entry_async() {
   await test("test2k.img");
   await test("test4k.img");
   await test("test64k.img");
+  await test("test128k.img");
+  await test("test256k.img");
+  await test("test512k.img");
+  await test("test1m.img");
+  await test("test2m.img");
+  await test("test4m.img");
+  await test("test8m.img");
+  await test("test16m.img");
+  await test("test32m.img");
+  await test("test64m.img");
+  await test("test128m.img");
 }
 
 function entry() {
