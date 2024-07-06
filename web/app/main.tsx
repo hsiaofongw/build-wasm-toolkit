@@ -226,7 +226,7 @@ function computeDigest(
   inputData: Uint8Array,
   checkflags: DigestCheckFlag
 ): Promise<DigestResult[]> {
-  const numPages = 2 * Math.ceil(inputData.length / (64 * 2 ** 10));
+  const numPages = 4 * Math.ceil(inputData.length / (64 * 2 ** 10));
   const msglen = inputData.length;
 
   const shm0 = new WebAssembly.Memory({
@@ -234,7 +234,7 @@ function computeDigest(
   });
 
   const dview = new DataView(shm0.buffer);
-  const buf_start = 2048;
+  const buf_start = 4096;
   for (let i = 0; i < msglen; ++i) {
     dview.setUint8(buf_start + i, inputData[i]);
   }

@@ -4,6 +4,8 @@ function alignToMultiplesOf(size, n = 256) {
   return Math.ceil(size / n) * n;
 }
 
+const wasmFile = "toolchain.wasm";
+
 async function test(filename) {
   const data = await fetch(filename)
     .then((r) => r.arrayBuffer())
@@ -26,8 +28,8 @@ async function test(filename) {
     dview.setUint8(msg_buf + i, data[i]);
   }
 
-  const hex = await WebAssembly.instantiateStreaming(fetch("digest.wasm"), {
-    importobjs: { shm1: shm0 },
+  const hex = await WebAssembly.instantiateStreaming(fetch(wasmFile), {
+    importobjs: { shm0: shm0 },
   })
     .then((obj) => {
       obj.instance.exports.sha256_buffer(msg_buf, msg_len, result_buf);
@@ -46,10 +48,14 @@ async function test(filename) {
 }
 
 async function entry_async() {
+  console.log("WASM file:", wasmFile);
   await test("test512.img");
   await test("test786.img");
   await test("test1k.img");
   await test("test1_5k.img");
+  await test("test2k.img");
+  await test("test4k.img");
+  await test("test64k.img");
 }
 
 function entry() {
