@@ -1,6 +1,6 @@
 FROM myubuntu:0.1
 
-ARG JOBS=1
+ARG JOBS=8
 
 # 安装 LLVM (lld, clang)
 WORKDIR /build

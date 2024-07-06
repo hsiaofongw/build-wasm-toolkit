@@ -1,6 +1,6 @@
 FROM myubuntu:0.1
 
-ARG JOBS=1
+ARG JOBS=8
 
 # 安装 NodeJS 20.15.0 (LTS)
 WORKDIR /build

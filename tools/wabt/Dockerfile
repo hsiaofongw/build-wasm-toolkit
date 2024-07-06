@@ -1,6 +1,6 @@
 FROM myubuntu:0.1
 
-ARG JOBS=1
+ARG JOBS=8
 ARG INSTALL_PREFIX=/root/local/wabt
 
 WORKDIR /build
