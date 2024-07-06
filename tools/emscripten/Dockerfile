@@ -1,11 +1,10 @@
 FROM myllvm:0.1 AS llvm-build
-FROM mynodejs:0.1 AS node-build
 FROM mybinaryen:0.1 AS binaryen-build
 
 FROM myubuntu:0.1
 
 COPY --from=llvm-build /build/llvm-project/build /build/llvm
-COPY --from=node-build /root/local/node /build/node
+COPY --from=node:lts /usr/local /build/node
 COPY --from=binaryen-build /build/binaryen /build/binaryen
 
 # 安装 emscripten
