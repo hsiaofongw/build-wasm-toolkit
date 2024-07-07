@@ -26,18 +26,14 @@ async function test(filename) {
   console.log("Filename:", filename);
   console.log("Size:", data.length);
 
+  const result_len = size_per_algorithm["sha256"];
+
   const initial_pages = 2;
   const shm0 = new WebAssembly.Memory({
     initial: initial_pages,
   });
 
-  const result_buf = msg_buf + msg_buf_len;
-  const dview = new DataView(shm0.buffer);
-  for (let i = 0; i < data.length; ++i) {
-    dview.setUint8(msg_buf + i, data[i]);
-  }
-
-  const hex = await WebAssembly.instantiateStreaming(fetch(wasmFile), {
+  await WebAssembly.instantiateStreaming(fetch(wasmFile), {
     importobjs: { shm0: shm0 },
     env: {
       on_hash_value_update: (offset, alg_id, stage) => {
@@ -61,31 +57,37 @@ async function test(filename) {
       }
 
       const msg_len = data.length;
-      const msg_buf_len = alignToMultiplesOf(msg_len, 64);
-      const result_len = size_per_algorithm["sha256"];
-      const msg_buf = first_addr;
 
-      const size_needed =
-        first_addr +
-        msg_buf_len +
-        alignToMultiplesOf(Math.max(...Object.values(size_per_algorithm)));
+      const msg_buf = alignToMultiplesOf(first_addr + 1);
+      const result_buf = alignToMultiplesOf(msg_buf + msg_len);
+
+      const size_needed = alignToMultiplesOf(
+        result_buf + Math.max(...Object.values(size_per_algorithm))
+      );
       const initial_size = initial_pages * size_per_page;
-      if (size_needed > initial_size) {
-        const need_more = size_needed - initial_size;
-        const need_more_page = Math.ceil(need_more / size_per_page);
+      if (size_needed >= initial_size) {
+        const need_more = Math.max(1, size_needed - initial_size);
+        const need_more_pages = Math.ceil(need_more / size_per_page);
+        if (obj.instance.exports.getmorepages(need_more_pages) < 0) {
+          throw new Error("failed to get more pages.");
+        }
       }
 
-      obj.instance.exports.sha256_buffer(msg_buf, msg_len, result_buf);
-      const resultDigest = new Uint8Array(shm0.buffer, result_buf, result_len);
-      const hexHash = toHex(resultDigest);
-      return hexHash;
+      const dview = new DataView(shm0.buffer);
+      for (let i = 0; i < msg_len; ++i) {
+        dview.setUint8(msg_buf + i, data[i]);
+      }
+
+      obj.instance.exports.initiate_buffer_hashing(
+        msg_buf,
+        msg_len,
+        digestIdSHA256
+      );
     })
     .catch((e) => {
       console.error(e);
       return "";
     });
-
-  console.log(hex);
 }
 
 async function entry_async() {
