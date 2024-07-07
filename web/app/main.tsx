@@ -288,7 +288,6 @@ export function Main() {
                           {
                             name: name,
                             file,
-                            data: new Uint8Array(),
                             loading: true,
                           },
                         ])
@@ -297,12 +296,12 @@ export function Main() {
 
                     reader.addEventListener("load", (ev) => {
                       const result = reader.result;
-                      let data = new Uint8Array();
+                      let data: Uint8Array | undefined;
                       try {
                         if (typeof result === "string") {
                           const encoder = new TextEncoder();
                           data = encoder.encode(result);
-                        } else if (ev instanceof ArrayBuffer) {
+                        } else if (result instanceof ArrayBuffer) {
                           data = new Uint8Array(result);
                         } else {
                           throw new Error(
@@ -391,9 +390,15 @@ export function Main() {
                 ))
               )
             ) : inputType === InputType.File ? (
-              loadedFiles.map((f, idx) => (
-                <FileDigestResult key={idx} file={f} checkflags={checkflags} />
-              ))
+              loadedFiles
+                .filter((f) => f.data !== undefined)
+                .map((f, idx) => (
+                  <FileDigestResult
+                    key={idx}
+                    file={f}
+                    checkflags={checkflags}
+                  />
+                ))
             ) : (
               <>未知输入类型</>
             )}

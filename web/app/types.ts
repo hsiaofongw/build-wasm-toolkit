@@ -3,7 +3,7 @@ import { Progress } from "./utils/progress";
 export type LoadedFile = {
   name: string;
   file: File;
-  data: ArrayBuffer;
+  data?: Uint8Array;
   loading?: boolean;
   progress?: Progress;
 };
