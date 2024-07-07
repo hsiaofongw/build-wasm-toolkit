@@ -9,7 +9,7 @@ index b95fb408d5..c95ab06977 100644
 +*.wasm
 diff --git a/build/build.sh b/build/build.sh
 new file mode 100755
-index 0000000000..bc1e3f7076
+index 0000000000..bf82a3df30
 --- /dev/null
 +++ b/build/build.sh
 @@ -0,0 +1,42 @@
@@ -20,7 +20,7 @@ index 0000000000..bc1e3f7076
 +cFiles=( md5.c sha1.c sha256.c sha512.c sm3.c io_adapter.c )
 +for f in "${cFiles[@]}"; do
 +  targetName="$(basename $f .c).rel.wasm"
-+  echo Building $targetName
++  echo Building $(realpath $targetName)
 +  emcc \
 +    "-I$scriptDir/../../lib" \
 +    "-I$scriptDir/../lib" \
@@ -32,12 +32,12 @@ index 0000000000..bc1e3f7076
 +watFiles=( get_more_pages.wat get_stack_top.wat memcpy.wat )
 +for f in "${watFiles[@]}"; do
 +  targetName="$(basename $f .wat).rel.wasm"
-+  echo Building $targetName
++  echo Building $(realpath $targetName)
 +  wat2wasm "$scriptDir/../lib/$f" -r -o "$scriptDir/$targetName"
 +done
 +
 +targetName=out.wasm
-+echo "Linking $targetName ..."
++echo "Linking $(realpath $targetName) ..."
 +wasm-ld \
 +  --no-entry \
 +  --export=initiate_buffer_hashing \
