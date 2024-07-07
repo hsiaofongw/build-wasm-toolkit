@@ -1,4 +1,5 @@
-import { DigestCheckFlag, DigestResult } from "../types";
+import { DigestId, DigestResult } from "../types";
+import { BitMap } from "./bitmap";
 
 const default_alignment = 64;
 const base_workspace_addr = 2 ** 20;
@@ -26,7 +27,7 @@ const pathToToolchainWasm = "toolchain.wasm";
 
 export function computeDigest(
   inputData: Uint8Array,
-  checkflags: DigestCheckFlag
+  selectedAlgs: BitMap
 ): Promise<DigestResult[]> {
   const msglen = inputData.length;
   const msg_aligned_len = alignToMultiplesOf(msglen, default_alignment);
@@ -113,26 +114,26 @@ export function computeDigest(
       const sm3_result_len = size_per_algorithm.sm3;
 
       let result: DigestResult[] = [];
-      if (checkflags & DigestCheckFlag.MD5) {
+      if (selectedAlgs & DigestId.MD5) {
         md5_buffer(buf_start, msglen, md5_result_buf);
         result.push({
-          algorithmName: DigestCheckFlag.MD5,
+          algorithmName: DigestId.MD5,
           value: new Uint8Array(shm0.buffer, md5_result_buf, md5_result_len),
         });
       }
 
-      if (checkflags & DigestCheckFlag.SHA1) {
+      if (selectedAlgs & DigestId.SHA1) {
         sha1_buffer(buf_start, msglen, sha1_result_buf);
         result.push({
-          algorithmName: DigestCheckFlag.SHA1,
+          algorithmName: DigestId.SHA1,
           value: new Uint8Array(shm0.buffer, sha1_result_buf, sha1_result_len),
         });
       }
 
-      if (checkflags & DigestCheckFlag.SHA224) {
+      if (selectedAlgs & DigestId.SHA224) {
         sha224_buffer(buf_start, msglen, sha224_result_buf);
         result.push({
-          algorithmName: DigestCheckFlag.SHA224,
+          algorithmName: DigestId.SHA224,
           value: new Uint8Array(
             shm0.buffer,
             sha224_result_buf,
@@ -141,10 +142,10 @@ export function computeDigest(
         });
       }
 
-      if (checkflags & DigestCheckFlag.SHA256) {
+      if (selectedAlgs & DigestId.SHA256) {
         sha256_buffer(buf_start, msglen, sha256_result_buf);
         result.push({
-          algorithmName: DigestCheckFlag.SHA256,
+          algorithmName: DigestId.SHA256,
           value: new Uint8Array(
             shm0.buffer,
             sha256_result_buf,
@@ -153,10 +154,10 @@ export function computeDigest(
         });
       }
 
-      if (checkflags & DigestCheckFlag.SHA384) {
+      if (selectedAlgs & DigestId.SHA384) {
         sha384_buffer(buf_start, msglen, sha384_result_buf);
         result.push({
-          algorithmName: DigestCheckFlag.SHA384,
+          algorithmName: DigestId.SHA384,
           value: new Uint8Array(
             shm0.buffer,
             sha384_result_buf,
@@ -165,10 +166,10 @@ export function computeDigest(
         });
       }
 
-      if (checkflags & DigestCheckFlag.SHA512) {
+      if (selectedAlgs & DigestId.SHA512) {
         sha512_buffer(buf_start, msglen, sha512_result_buf);
         result.push({
-          algorithmName: DigestCheckFlag.SHA512,
+          algorithmName: DigestId.SHA512,
           value: new Uint8Array(
             shm0.buffer,
             sha512_result_buf,
@@ -177,10 +178,10 @@ export function computeDigest(
         });
       }
 
-      if (checkflags & DigestCheckFlag.SM3) {
+      if (selectedAlgs & DigestId.SM3) {
         sm3_buffer(buf_start, msglen, sm3_result_buf);
         result.push({
-          algorithmName: DigestCheckFlag.SM3,
+          algorithmName: DigestId.SM3,
           value: new Uint8Array(shm0.buffer, sm3_result_buf, sm3_result_len),
         });
       }

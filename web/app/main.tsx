@@ -18,17 +18,18 @@ import {
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import {
-  DigestCheckFlag,
-  DigestResult,
-  LoadedFile,
-  allDigestAlgs,
-} from "./types";
+import { DigestId, DigestResult, LoadedFile, allDigestAlgs } from "./types";
 import { DropAccept } from "./components/drop-accept";
 import { withNameMangled } from "./utils/name-mangling";
 import { computeDigest } from "./utils/compute-digest";
-import { removeDotZeros, toPercent } from "./utils/format";
+import { toPercent } from "./utils/format";
 import { ProgressIndicator, getProgress } from "./utils/progress";
+import {
+  BitMap,
+  bitmap_is_set,
+  bitmap_new,
+  bitmap_toggle,
+} from "./utils/bitmap";
 
 function toHexString(ua: Uint8Array): string {
   return Array.from(ua)
@@ -57,13 +58,13 @@ const allInputTypes: InputType[] = [InputType.Text, InputType.File];
 function useHashAlgNameMap() {
   const m = useMemo(() => {
     const m: Record<string, string> = {};
-    m[String(DigestCheckFlag.MD5)] = "MD5";
-    m[String(DigestCheckFlag.SHA1)] = "SHA1";
-    m[String(DigestCheckFlag.SHA224)] = "SHA224";
-    m[String(DigestCheckFlag.SHA256)] = "SHA256";
-    m[String(DigestCheckFlag.SHA384)] = "SHA384";
-    m[String(DigestCheckFlag.SHA512)] = "SHA512";
-    m[String(DigestCheckFlag.SM3)] = "SM3";
+    m[String(DigestId.MD5)] = "MD5";
+    m[String(DigestId.SHA1)] = "SHA1";
+    m[String(DigestId.SHA224)] = "SHA224";
+    m[String(DigestId.SHA256)] = "SHA256";
+    m[String(DigestId.SHA384)] = "SHA384";
+    m[String(DigestId.SHA512)] = "SHA512";
+    m[String(DigestId.SM3)] = "SM3";
     return m;
   }, []);
 
@@ -91,10 +92,7 @@ function DisplayDigestResult(props: { item: DigestResult }) {
   );
 }
 
-function FileDigestResult(props: {
-  file: LoadedFile;
-  checkflags: DigestCheckFlag;
-}) {
+function FileDigestResult(props: { file: LoadedFile; checkflags: BitMap }) {
   const digestQuery = useQuery({
     queryKey: [
       "file",
@@ -145,9 +143,7 @@ function FileDigestResult(props: {
 
 export function Main() {
   const [inputType, setInputType] = useState<InputType>(allInputTypes[0]);
-  const [checkflags, setCheck] = useState<DigestCheckFlag>(
-    DigestCheckFlag.NONE
-  );
+  const [checkflags, setCheck] = useState<BitMap>(bitmap_new);
   const [text, setText] = useState("");
   const textDigestQuery = useQuery({
     queryKey: ["text", text, checkflags],
@@ -360,8 +356,12 @@ export function Main() {
                     key={alg}
                     control={
                       <Checkbox
-                        checked={Boolean(checkflags & alg)}
-                        onChange={() => setCheck((prev) => prev ^ alg)}
+                        checked={bitmap_is_set(checkflags, alg)}
+                        onChange={() =>
+                          setCheck((prev_bitmap) =>
+                            bitmap_toggle(prev_bitmap, alg)
+                          )
+                        }
                       />
                     }
                     label={getName(alg)}

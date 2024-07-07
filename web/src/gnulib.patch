@@ -1,0 +1,61 @@
+diff --git a/lib/md5.c b/lib/md5.c
+index 8e02f15d14..3c0ce71c70 100644
+--- a/lib/md5.c
++++ b/lib/md5.c
+@@ -27,6 +27,8 @@
+ #endif
+ #include "md5.h"
+ 
++#include "io_adapter.h"
++
+ #include <stdint.h>
+ #include <string.h>
+ #include <sys/types.h>
+@@ -244,6 +246,7 @@ md5_process_block (const void *buffer, size_t len, struct md5_ctx *ctx)
+   ctx->total[0] += lolen;
+   ctx->total[1] += (len >> 31 >> 1) + (ctx->total[0] < lolen);
+ 
++  uint32_t num_iters = 0;
+   /* Process all bytes in the buffer with 64 bytes in each round of
+      the loop.  */
+   while (words < endp)
+@@ -375,6 +378,8 @@ md5_process_block (const void *buffer, size_t len, struct md5_ctx *ctx)
+       B += B_save;
+       C += C_save;
+       D += D_save;
++
++      on_hash_process_block_iterate(num_iters++, ctx, DIGEST_MD5);
+     }
+ 
+   /* Put checksum in context given as argument.  */
+diff --git a/lib/sha256.c b/lib/sha256.c
+index fe7c5446da..2a42856e54 100644
+--- a/lib/sha256.c
++++ b/lib/sha256.c
+@@ -38,6 +38,9 @@
+ # define SWAP(n) bswap_32 (n)
+ #endif
+ 
++
++#include "io_adapter.h"
++
+ #if ! HAVE_OPENSSL_SHA256
+ 
+ /* This array contains the bytes used to pad the buffer to the next
+@@ -334,6 +337,7 @@ sha256_process_block (const void *buffer, size_t len, struct sha256_ctx *ctx)
+                                      D += t1;  H = t0 + t1; \
+                                } while(0)
+ 
++  uint32_t num_iters = 0;
+   while (words < endp)
+     {
+       uint32_t tm;
+@@ -419,6 +423,8 @@ sha256_process_block (const void *buffer, size_t len, struct sha256_ctx *ctx)
+       f = ctx->state[5] += f;
+       g = ctx->state[6] += g;
+       h = ctx->state[7] += h;
++
++      on_hash_process_block_iterate(num_iters++, ctx, DIGEST_SHA256);
+     }
+ }
+ 
