@@ -9,7 +9,6 @@ function alignToMultiplesOf(size, n = 256) {
 const wasmFile = "out.wasm";
 
 const size_per_algorithm = { sha256: 256 / 8 };
-const base_workspace_addr = 2 ** 20;
 const size_per_page = 2 ** 16;
 
 function toHex(data) {
