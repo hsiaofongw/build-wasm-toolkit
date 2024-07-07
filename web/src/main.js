@@ -1,5 +1,7 @@
 window.addEventListener("load", entry);
 
+const digestIdSHA256 = 4;
+
 function alignToMultiplesOf(size, n = 256) {
   return Math.ceil(size / n) * n;
 }
@@ -24,15 +26,9 @@ async function test(filename) {
   console.log("Filename:", filename);
   console.log("Size:", data.length);
 
-  const msg_len = data.length;
-  const msg_buf_len = alignToMultiplesOf(msg_len, 64);
-  const result_len = size_per_algorithm["sha256"];
-  const msg_buf = base_workspace_addr;
-  const total_size_needed =
-    base_workspace_addr + msg_buf_len + alignToMultiplesOf(result_len);
-
+  const initial_pages = 2;
   const shm0 = new WebAssembly.Memory({
-    initial: Math.ceil(total_size_needed / size_per_page),
+    initial: initial_pages,
   });
 
   const result_buf = msg_buf + msg_buf_len;
@@ -44,17 +40,41 @@ async function test(filename) {
   const hex = await WebAssembly.instantiateStreaming(fetch(wasmFile), {
     importobjs: { shm0: shm0 },
     env: {
-      on_sha256_hash_update: (offset) => {
+      on_hash_value_update: (offset, alg_id, stage) => {
         const intermediateDigest = new Uint8Array(
           shm0.buffer,
           offset,
           result_len
         );
-        console.log(toHex(intermediateDigest));
+        console.log(
+          `HEX: ${toHex(
+            intermediateDigest
+          )}, alg_id: ${alg_id}, stage: ${stage}`
+        );
       },
     },
   })
     .then((obj) => {
+      const first_addr = obj.instance.exports.get_first_usable_address();
+      if (first_addr === undefined) {
+        throw new Error("failed to get first usable address.");
+      }
+
+      const msg_len = data.length;
+      const msg_buf_len = alignToMultiplesOf(msg_len, 64);
+      const result_len = size_per_algorithm["sha256"];
+      const msg_buf = first_addr;
+
+      const size_needed =
+        first_addr +
+        msg_buf_len +
+        alignToMultiplesOf(Math.max(...Object.values(size_per_algorithm)));
+      const initial_size = initial_pages * size_per_page;
+      if (size_needed > initial_size) {
+        const need_more = size_needed - initial_size;
+        const need_more_page = Math.ceil(need_more / size_per_page);
+      }
+
       obj.instance.exports.sha256_buffer(msg_buf, msg_len, result_buf);
       const resultDigest = new Uint8Array(shm0.buffer, result_buf, result_len);
       const hexHash = toHex(resultDigest);

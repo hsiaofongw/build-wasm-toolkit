@@ -1,3 +1,89 @@
+diff --git a/.gitignore b/.gitignore
+index b95fb408d5..c95ab06977 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,3 +6,4 @@
+ allsnippets.tmp
+ amsnippet.tmp
+ testdir*
++*.wasm
+diff --git a/build/build.sh b/build/build.sh
+new file mode 100755
+index 0000000000..bc1e3f7076
+--- /dev/null
++++ b/build/build.sh
+@@ -0,0 +1,42 @@
++#!/bin/bash
++
++scriptDir=$(dirname $0)
++
++cFiles=( md5.c sha1.c sha256.c sha512.c sm3.c io_adapter.c )
++for f in "${cFiles[@]}"; do
++  targetName="$(basename $f .c).rel.wasm"
++  echo Building $targetName
++  emcc \
++    "-I$scriptDir/../../lib" \
++    "-I$scriptDir/../lib" \
++    "$scriptDir/../lib/$f" \
++    -O3 -c -o \
++    "$scriptDir/$targetName"
++done
++
++watFiles=( get_more_pages.wat get_stack_top.wat memcpy.wat )
++for f in "${watFiles[@]}"; do
++  targetName="$(basename $f .wat).rel.wasm"
++  echo Building $targetName
++  wat2wasm "$scriptDir/../lib/$f" -r -o "$scriptDir/$targetName"
++done
++
++targetName=out.wasm
++echo "Linking $targetName ..."
++wasm-ld \
++  --no-entry \
++  --export=initiate_buffer_hashing \
++  --export=get_first_usable_address \
++  --export=getmorepages \
++  --import-undefined \
++  --import-memory=importobjs,shm0 \
++  "$scriptDir/memcpy.rel.wasm" \
++  "$scriptDir/get_stack_top.rel.wasm" \
++  "$scriptDir/get_more_pages.rel.wasm" \
++  "$scriptDir/io_adapter.rel.wasm" \
++  "$scriptDir/md5.rel.wasm" \
++  "$scriptDir/sha1.rel.wasm" \
++  "$scriptDir/sha256.rel.wasm" \
++  "$scriptDir/sha512.rel.wasm" \
++  "$scriptDir/sm3.rel.wasm" \
++  -o "$scriptDir/$targetName"
+diff --git a/build/clean.sh b/build/clean.sh
+new file mode 100755
+index 0000000000..a38fd31e77
+--- /dev/null
++++ b/build/clean.sh
+@@ -0,0 +1,9 @@
++#!/bin/sh
++
++scriptDir=$(dirname $0)
++
++for f in $scriptDir/*.wasm; do
++	echo deleting: $f
++	rm $f
++done
++
+diff --git a/lib/get_more_pages.wat b/lib/get_more_pages.wat
+new file mode 100644
+index 0000000000..572dcb482d
+--- /dev/null
++++ b/lib/get_more_pages.wat
+@@ -0,0 +1,8 @@
++(module
++  (memory 2)
++  (func $getmorepages (param $numpages i32) (result i32)
++    local.get $numpages
++    memory.grow
++  )
++  (export "getmorepages" (func $getmorepages))
++)
 diff --git a/lib/get_stack_top.wat b/lib/get_stack_top.wat
 new file mode 100644
 index 0000000000..108efb1b39
