@@ -1,14 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LoadedFile } from "./types";
 import { lightBlue } from "@mui/material/colors";
-import { Box } from "@mui/material";
+import { Box, Link } from "@mui/material";
 
 export function DropAccept(props: {
   onLoaded: (loadedFile: LoadedFile) => void;
 }) {
   const [entered, setEntered] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const handleReaderLoaded = (
+    e: ProgressEvent<FileReader>,
+    reader: FileReader,
+    file: File
+  ) => {
+    if (e.loaded) {
+      if (reader.result instanceof ArrayBuffer) {
+        props.onLoaded({ file, data: reader.result });
+      }
+    }
+  };
+  const handleReaderError = (e: ProgressEvent<FileReader>) => {
+    console.error("Reader error:", e);
+  };
+  const handleNewFile = (file: File) => {
+    const reader = new FileReader();
+    reader.addEventListener("loadend", (e) =>
+      handleReaderLoaded(e, reader, file)
+    );
+    reader.addEventListener("error", handleReaderError);
+
+    reader.readAsArrayBuffer(file);
+  };
+
   return (
     <Box
       sx={{
@@ -47,19 +72,7 @@ export function DropAccept(props: {
 
             try {
               const file = item.getAsFile();
-              const reader = new FileReader();
-              reader.addEventListener("loadend", (e) => {
-                if (e.loaded) {
-                  if (reader.result instanceof ArrayBuffer) {
-                    props.onLoaded({ file, data: reader.result });
-                  }
-                }
-              });
-              reader.addEventListener("error", (e) => {
-                console.error("Reader error:", e);
-              });
-
-              reader.readAsArrayBuffer(file);
+              handleNewFile(file);
             } catch (e) {
               console.log(e);
               continue;
@@ -68,7 +81,42 @@ export function DropAccept(props: {
         }
       }}
     >
-      {entered ? "松开鼠标放下" : "拖拽文件到这里"}
+      {entered ? (
+        "松开鼠标放下"
+      ) : (
+        <Box>
+          拖拽文件到这里，或者
+          <Link
+            onClick={() => {
+              inputRef.current?.click?.();
+            }}
+            sx={{ cursor: "pointer" }}
+            underline="hover"
+          >
+            选择文件上传
+          </Link>
+          <input
+            onChange={(ev) => {
+              const files = ev.target.files;
+              if (!files || !(files instanceof FileList)) {
+                return;
+              }
+
+              for (let i = 0; i < files.length; ++i) {
+                const file = files.item(i);
+                if (!file || !(file instanceof File)) {
+                  continue;
+                }
+
+                handleNewFile(file);
+              }
+            }}
+            ref={inputRef}
+            type="file"
+            style={{ display: "none" }}
+          ></input>
+        </Box>
+      )}
     </Box>
   );
 }
