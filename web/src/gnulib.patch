@@ -99,10 +99,10 @@ index 0000000000..108efb1b39
 +)
 diff --git a/lib/io_adapter.c b/lib/io_adapter.c
 new file mode 100644
-index 0000000000..c0fdf1931e
+index 0000000000..9d126fd267
 --- /dev/null
 +++ b/lib/io_adapter.c
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,89 @@
 +#include "io_adapter.h"
 +
 +#include <config.h>
@@ -159,7 +159,8 @@ index 0000000000..c0fdf1931e
 +  read_result(ctx, alg_id, HASH_STAGE_PROCESSING);
 +}
 +
-+void initiate_buffer_hashing(char *msg_buf, uint32_t msg_len, uint32_t alg_id) {
++void *initiate_buffer_hashing(char *msg_buf, uint32_t msg_len,
++                              uint32_t alg_id) {
 +  switch (alg_id) {
 +    case DIGEST_MD5:
 +      md5_buffer(msg_buf, msg_len, result_buf);
@@ -187,15 +188,16 @@ index 0000000000..c0fdf1931e
 +  }
 +
 +  on_hash_value_update(result_buf, alg_id, HASH_STAGE_COMPLETE);
++  return result_buf;
 +}
 +
 +void *get_first_usable_address() { return getllvmallocastacktop(); }
 diff --git a/lib/io_adapter.h b/lib/io_adapter.h
 new file mode 100644
-index 0000000000..4bf8c67549
+index 0000000000..a36208ca79
 --- /dev/null
 +++ b/lib/io_adapter.h
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,25 @@
 +#include <stdint.h>
 +
 +enum DigestId {
@@ -217,6 +219,10 @@ index 0000000000..4bf8c67549
 +
 +// provided by linking
 +void *getllvmallocastacktop();
++
++// called within embedder (e.g. web browser)
++// returns the addr of result_buf
++void *initiate_buffer_hashing(char *msg_buf, uint32_t msg_len, uint32_t alg_id);
 diff --git a/lib/md5.c b/lib/md5.c
 index 8e02f15d14..3c0ce71c70 100644
 --- a/lib/md5.c
