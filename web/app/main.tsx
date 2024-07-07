@@ -104,7 +104,7 @@ function FileDigestResult(props: {
     ],
     queryFn: () => {
       return props.file.data.byteLength > 0
-        ? computeDigest(new Uint8Array(props.file.data), props.checkflags)
+        ? computeDigest(props.file.data, props.checkflags)
         : Promise.resolve([]);
     },
   });

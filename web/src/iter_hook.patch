@@ -1,0 +1,24 @@
+diff --git a/lib/sha256.c b/lib/sha256.c
+index fe7c5446da..14c5a0bee6 100644
+--- a/lib/sha256.c
++++ b/lib/sha256.c
+@@ -289,6 +289,8 @@ static const uint32_t sha256_round_constants[64] = {
+ #define F2(A,B,C) ( ( A & B ) | ( C & ( A | B ) ) )
+ #define F1(E,F,G) ( G ^ ( E & ( F ^ G ) ) )
+ 
++void on_sha256_block_process_iter(uint32_t);
++
+ /* Process LEN bytes of BUFFER, accumulating context into CTX.
+    It is assumed that LEN % 64 == 0.
+    Most of this code comes from GnuPG's cipher/sha1.c.  */
+@@ -334,8 +336,10 @@ sha256_process_block (const void *buffer, size_t len, struct sha256_ctx *ctx)
+                                      D += t1;  H = t0 + t1; \
+                                } while(0)
+ 
++  uint32_t num_iters = 0;
+   while (words < endp)
+     {
++      on_sha256_block_process_iter(++num_iters);
+       uint32_t tm;
+       uint32_t t0, t1;
+       int t;
