@@ -12,9 +12,11 @@ import {
   RadioGroup,
   TextField,
 } from "@mui/material";
-import { blue, lightBlue } from "@mui/material/colors";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { LoadedFile } from "./types";
+import { DropAccept } from "./drop-accept";
+import { withNameMangled } from "./utils/name-mangling";
 
 function alignToMultiplesOf(size: number, n: number) {
   return Math.ceil(size / n) * n;
@@ -164,92 +166,6 @@ function FileDigestResult(props: {
           ))
         )}
       </Box>
-    </Box>
-  );
-}
-
-function appendDupId(name: string): string {
-  const pattern = /^([^.]+)([.][a-zA-Z0-9\-_]+)$/;
-  const res = pattern.exec(name);
-  if (res === null) {
-    return `${name}_1`;
-  }
-  return `${res[1]}_1${res[2]}`;
-}
-
-type LoadedFile = { file: File; data: ArrayBuffer };
-function withNameMangled(f: LoadedFile, fs: LoadedFile[]): LoadedFile {
-  if (fs.some((f_) => f_.file.name === f.file.name)) {
-    return withNameMangled(
-      { ...f, file: { ...f.file, name: appendDupId(f.file.name) } },
-      fs
-    );
-  }
-  return f;
-}
-
-function DropAccept(props: { onLoaded: (loadedFile: LoadedFile) => void }) {
-  const [entered, setEntered] = useState(false);
-  return (
-    <Box
-      sx={{
-        width: "100%",
-        height: "100%",
-        borderStyle: "dashed",
-        borderRadius: "14px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderColor: entered ? lightBlue["600"] : "initial",
-      }}
-      onDragEnter={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setEntered(true);
-      }}
-      onDragLeave={(e) => {
-        setEntered(false);
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setEntered(false);
-        const items = e.dataTransfer.items;
-        if (items) {
-          for (let i = 0; i < items.length; ++i) {
-            const item = items[i];
-            if (item.kind !== "file") {
-              continue;
-            }
-
-            try {
-              const file = item.getAsFile();
-              const reader = new FileReader();
-              reader.addEventListener("loadend", (e) => {
-                if (e.loaded) {
-                  if (reader.result instanceof ArrayBuffer) {
-                    props.onLoaded({ file, data: reader.result });
-                  }
-                }
-              });
-              reader.addEventListener("error", (e) => {
-                console.error("Reader error:", e);
-              });
-
-              reader.readAsArrayBuffer(file);
-            } catch (e) {
-              console.log(e);
-              continue;
-            }
-          }
-        }
-      }}
-    >
-      {entered ? "松开鼠标放下" : "拖拽文件到这里"}
     </Box>
   );
 }
