@@ -1,38 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { LoadedFile } from "./types";
 import { lightBlue } from "@mui/material/colors";
 import { Box, Link } from "@mui/material";
 
-export function DropAccept(props: {
-  onLoaded: (loadedFile: LoadedFile) => void;
-}) {
+export function DropAccept(props: { onNewFile: (file: File) => void }) {
   const [entered, setEntered] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const handleReaderLoaded = (
-    e: ProgressEvent<FileReader>,
-    reader: FileReader,
-    file: File
-  ) => {
-    if (e.loaded) {
-      if (reader.result instanceof ArrayBuffer) {
-        props.onLoaded({ file, data: reader.result });
-      }
-    }
-  };
-  const handleReaderError = (e: ProgressEvent<FileReader>) => {
-    console.error("Reader error:", e);
-  };
-  const handleNewFile = (file: File) => {
-    const reader = new FileReader();
-    reader.addEventListener("loadend", (e) =>
-      handleReaderLoaded(e, reader, file)
-    );
-    reader.addEventListener("error", handleReaderError);
 
-    reader.readAsArrayBuffer(file);
-  };
+  const handleNewFile = props.onNewFile;
 
   return (
     <Box

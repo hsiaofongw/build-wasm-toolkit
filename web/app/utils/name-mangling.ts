@@ -9,12 +9,9 @@ function appendDupId(name: string): string {
   return `${res[1]}_1${res[2]}`;
 }
 
-export function withNameMangled(f: LoadedFile, fs: LoadedFile[]): LoadedFile {
-  if (fs.some((f_) => f_.file.name === f.file.name)) {
-    return withNameMangled(
-      { ...f, file: { ...f.file, name: appendDupId(f.file.name) } },
-      fs
-    );
+export function withNameMangled(name: string, names: string[]): string {
+  if (names.includes(name)) {
+    return withNameMangled(appendDupId(name), names);
   }
-  return f;
+  return name;
 }

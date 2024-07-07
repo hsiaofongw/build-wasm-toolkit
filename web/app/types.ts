@@ -1,4 +1,12 @@
-export type LoadedFile = { file: File; data: ArrayBuffer };
+import { Progress } from "./utils/progress";
+
+export type LoadedFile = {
+  name: string;
+  file: File;
+  data: ArrayBuffer;
+  loading?: boolean;
+  progress?: Progress;
+};
 
 export enum DigestCheckFlag {
   NONE = 0x0,
