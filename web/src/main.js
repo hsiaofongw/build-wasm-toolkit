@@ -4,11 +4,17 @@ function alignToMultiplesOf(size, n = 256) {
   return Math.ceil(size / n) * n;
 }
 
-const wasmFile = "toolchain.wasm";
+const wasmFile = "out.wasm";
 
 const size_per_algorithm = { sha256: 256 / 8 };
 const base_workspace_addr = 2 ** 20;
 const size_per_page = 2 ** 16;
+
+function toHex(data) {
+  return Array.from(data)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 async function test(filename) {
   const data = await fetch(filename)
@@ -37,13 +43,21 @@ async function test(filename) {
 
   const hex = await WebAssembly.instantiateStreaming(fetch(wasmFile), {
     importobjs: { shm0: shm0 },
+    env: {
+      on_sha256_hash_update: (offset) => {
+        const intermediateDigest = new Uint8Array(
+          shm0.buffer,
+          offset,
+          result_len
+        );
+        console.log(toHex(intermediateDigest));
+      },
+    },
   })
     .then((obj) => {
       obj.instance.exports.sha256_buffer(msg_buf, msg_len, result_buf);
       const resultDigest = new Uint8Array(shm0.buffer, result_buf, result_len);
-      const hexHash = Array.from(resultDigest)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+      const hexHash = toHex(resultDigest);
       return hexHash;
     })
     .catch((e) => {
@@ -51,29 +65,12 @@ async function test(filename) {
       return "";
     });
 
-  console.log("Hex:", hex);
+  console.log(hex);
 }
 
 async function entry_async() {
   console.log("WASM file:", wasmFile);
-  await test("test512.img");
-  await test("test786.img");
-  await test("test1k.img");
-  await test("test1_5k.img");
-  await test("test2k.img");
-  await test("test4k.img");
-  await test("test64k.img");
-  await test("test128k.img");
-  await test("test256k.img");
-  await test("test512k.img");
-  await test("test1m.img");
-  await test("test2m.img");
-  await test("test4m.img");
-  await test("test8m.img");
-  await test("test16m.img");
-  await test("test32m.img");
-  await test("test64m.img");
-  await test("test128m.img");
+  await test("test256m.img");
 }
 
 function entry() {
