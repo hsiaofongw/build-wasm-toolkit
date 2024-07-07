@@ -2,6 +2,7 @@
 
 import {
   Box,
+  Button,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -178,101 +179,123 @@ export function Main() {
 
   return (
     <Box>
-      <FormControl>
-        <FormLabel>输入方式</FormLabel>
-        <RadioGroup
-          row
-          value={inputType}
-          onChange={(_, val) => {
-            setInputType(
-              allInputTypes.find((s) => s === val) ?? allInputTypes[0]
-            );
+      <Box sx={{ maxWidth: "540px" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            gap: "18px",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <FormControlLabel
-            value={InputType.Text}
-            control={<Radio />}
-            label="文本"
-          />
-          <FormControlLabel
-            value={InputType.File}
-            control={<Radio />}
-            label="文件"
-          />
-        </RadioGroup>
-      </FormControl>
-
-      <Box sx={{ marginTop: "10px", maxWidth: "600px" }}>
-        {inputType === InputType.Text ? (
-          <TextField
-            fullWidth
-            multiline
-            rows={5}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value ?? "");
+          <FormControl
+            sx={{
+              display: "flex",
+              flexDirection: "row",
+              gap: "18px",
+              flexWrap: "wrap",
+              alignItems: "center",
             }}
-          />
-        ) : inputType === InputType.File ? (
-          <Box sx={{ height: "200px", width: "100%" }}>
-            <DropAccept
-              onLoaded={(f) => {
-                setLoadedFiles((prev) =>
-                  prev.concat([withNameMangled(f, loadedFiles)])
+          >
+            <FormLabel>输入方式</FormLabel>
+            <RadioGroup
+              row
+              value={inputType}
+              onChange={(_, val) => {
+                setInputType(
+                  allInputTypes.find((s) => s === val) ?? allInputTypes[0]
                 );
               }}
-            />
-          </Box>
-        ) : (
-          <Box>未知类型</Box>
-        )}
-      </Box>
-
-      <Box sx={{ marginTop: "16px" }}>
-        <FormControl component="fieldset">
-          <FormLabel component="legend">摘要算法</FormLabel>
-          <FormGroup row>
-            {allDigestAlgs.map((alg) => (
+            >
               <FormControlLabel
-                key={alg}
-                control={
-                  <Checkbox
-                    checked={Boolean(checkflags & alg)}
-                    onChange={() => setCheck((prev) => prev ^ alg)}
-                  />
-                }
-                label={getName(alg)}
+                value={InputType.Text}
+                control={<Radio />}
+                label="文本"
               />
-            ))}
-          </FormGroup>
-        </FormControl>
-      </Box>
+              <FormControlLabel
+                value={InputType.File}
+                control={<Radio />}
+                label="文件"
+              />
+            </RadioGroup>
+          </FormControl>
+          <Button>导出</Button>
+        </Box>
 
-      <Box
-        sx={{
-          marginTop: "10px",
-          display: "flex",
-          flexDirection: "column",
-          rowGap: "16px",
-        }}
-      >
-        {inputType === InputType.Text ? (
-          textDigestQuery.isLoading ? (
-            <Delayed delayMs={3000}>
-              <LinearProgress />
-            </Delayed>
+        <Box sx={{ marginTop: "10px" }}>
+          {inputType === InputType.Text ? (
+            <TextField
+              fullWidth
+              multiline
+              rows={5}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value ?? "");
+              }}
+            />
+          ) : inputType === InputType.File ? (
+            <Box sx={{ height: "200px", width: "100%" }}>
+              <DropAccept
+                onLoaded={(f) => {
+                  setLoadedFiles((prev) =>
+                    prev.concat([withNameMangled(f, loadedFiles)])
+                  );
+                }}
+              />
+            </Box>
           ) : (
-            textDigestQuery.data.map((item) => (
-              <DisplayDigestResult key={item.algorithmName} item={item} />
+            <Box>未知类型</Box>
+          )}
+        </Box>
+
+        <Box sx={{ marginTop: "16px" }}>
+          <FormControl component="fieldset">
+            <FormLabel component="legend">摘要算法</FormLabel>
+            <FormGroup row>
+              {allDigestAlgs.map((alg) => (
+                <FormControlLabel
+                  key={alg}
+                  control={
+                    <Checkbox
+                      checked={Boolean(checkflags & alg)}
+                      onChange={() => setCheck((prev) => prev ^ alg)}
+                    />
+                  }
+                  label={getName(alg)}
+                />
+              ))}
+            </FormGroup>
+          </FormControl>
+        </Box>
+
+        <Box
+          sx={{
+            marginTop: "10px",
+            display: "flex",
+            flexDirection: "column",
+            rowGap: "16px",
+          }}
+        >
+          {inputType === InputType.Text ? (
+            textDigestQuery.isLoading ? (
+              <Delayed delayMs={3000}>
+                <LinearProgress />
+              </Delayed>
+            ) : (
+              textDigestQuery.data.map((item) => (
+                <DisplayDigestResult key={item.algorithmName} item={item} />
+              ))
+            )
+          ) : inputType === InputType.File ? (
+            loadedFiles.map((f, idx) => (
+              <FileDigestResult key={idx} file={f} checkflags={checkflags} />
             ))
-          )
-        ) : inputType === InputType.File ? (
-          loadedFiles.map((f, idx) => (
-            <FileDigestResult key={idx} file={f} checkflags={checkflags} />
-          ))
-        ) : (
-          <>未知输入类型</>
-        )}
+          ) : (
+            <>未知输入类型</>
+          )}
+        </Box>
       </Box>
     </Box>
   );
