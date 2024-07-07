@@ -12,6 +12,7 @@ import {
   RadioGroup,
   TextField,
 } from "@mui/material";
+import { blue, lightBlue } from "@mui/material/colors";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
@@ -136,7 +137,8 @@ function FileDigestResult(props: {
   return (
     <Box>
       <Box>
-        文件名：{props.file.file.name}&nbsp;（{props.file.file.size}&nbsp;字节）
+        文件名：{props.file.file.name}&nbsp;（
+        {props.file.file.size ?? props.file.data.byteLength}&nbsp;字节）
       </Box>
 
       <Box
@@ -166,7 +168,26 @@ function FileDigestResult(props: {
   );
 }
 
+function appendDupId(name: string): string {
+  const pattern = /^([^.]+)([.][a-zA-Z0-9\-_]+)$/;
+  const res = pattern.exec(name);
+  if (res === null) {
+    return `${name}_1`;
+  }
+  return `${res[1]}_1${res[2]}`;
+}
+
 type LoadedFile = { file: File; data: ArrayBuffer };
+function withNameMangled(f: LoadedFile, fs: LoadedFile[]): LoadedFile {
+  if (fs.some((f_) => f_.file.name === f.file.name)) {
+    return withNameMangled(
+      { ...f, file: { ...f.file, name: appendDupId(f.file.name) } },
+      fs
+    );
+  }
+  return f;
+}
+
 function DropAccept(props: { onLoaded: (loadedFile: LoadedFile) => void }) {
   const [entered, setEntered] = useState(false);
   return (
@@ -179,6 +200,7 @@ function DropAccept(props: { onLoaded: (loadedFile: LoadedFile) => void }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        borderColor: entered ? lightBlue["600"] : "initial",
       }}
       onDragEnter={(e) => {
         e.preventDefault();
@@ -429,6 +451,26 @@ export function Main() {
 
   const { getName } = useHashAlgNameMap();
 
+  useEffect(() => {
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    const onDragEnter = (ev: DragEvent) => {
+      ev.preventDefault();
+      if (inputType !== InputType.File) {
+        setInputType(InputType.File);
+      }
+    };
+
+    window.document.body.addEventListener("dragover", onDragOver);
+    window.document.body.addEventListener("dragenter", onDragEnter);
+    return () => {
+      window.document.body.removeEventListener("dragenter", onDragEnter);
+      window.document.body.removeEventListener("dragover", onDragOver);
+    };
+  }, [inputType, setInputType]);
+
   return (
     <Box>
       <FormControl>
@@ -470,7 +512,9 @@ export function Main() {
           <Box sx={{ height: "200px", width: "100%" }}>
             <DropAccept
               onLoaded={(f) => {
-                setLoadedFiles((prev) => prev.concat([f]));
+                setLoadedFiles((prev) =>
+                  prev.concat([withNameMangled(f, loadedFiles)])
+                );
               }}
             />
           </Box>
