@@ -99,7 +99,7 @@ index 0000000000..108efb1b39
 +)
 diff --git a/lib/io_adapter.c b/lib/io_adapter.c
 new file mode 100644
-index 0000000000..9d126fd267
+index 0000000000..82254673ce
 --- /dev/null
 +++ b/lib/io_adapter.c
 @@ -0,0 +1,89 @@
@@ -184,7 +184,7 @@ index 0000000000..9d126fd267
 +      sm3_buffer(msg_buf, msg_len, result_buf);
 +      break;
 +    default:
-+      return;
++      return (void *)0;
 +  }
 +
 +  on_hash_value_update(result_buf, alg_id, HASH_STAGE_COMPLETE);

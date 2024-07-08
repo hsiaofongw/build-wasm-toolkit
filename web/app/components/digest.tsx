@@ -52,7 +52,7 @@ export function Digest(props: {
     return () => {
       if (streamRef.current) {
         if (streamRef.current.reader) {
-          streamRef.current.reader.releaseLock();
+          streamRef.current.reader.cancel();
         }
         streamRef.current = null;
       }

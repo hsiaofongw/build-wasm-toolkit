@@ -26,10 +26,13 @@ import { toPercent } from "./utils/format";
 import { ProgressIndicator, getProgress } from "./utils/progress";
 import {
   BitMap,
+  bitmap_get_selecteds,
   bitmap_is_set,
   bitmap_new,
   bitmap_toggle,
 } from "./utils/bitmap";
+import { Digest } from "./components/digest";
+import { AlgorithmName, useHashAlgNameMap } from "./components/algorithm-name";
 
 function toHexString(ua: Uint8Array): string {
   return Array.from(ua)
@@ -55,58 +58,7 @@ enum InputType {
 }
 const allInputTypes: InputType[] = [InputType.Text, InputType.File];
 
-function useHashAlgNameMap() {
-  const m = useMemo(() => {
-    const m: Record<string, string> = {};
-    m[String(DigestId.MD5)] = "MD5";
-    m[String(DigestId.SHA1)] = "SHA1";
-    m[String(DigestId.SHA224)] = "SHA224";
-    m[String(DigestId.SHA256)] = "SHA256";
-    m[String(DigestId.SHA384)] = "SHA384";
-    m[String(DigestId.SHA512)] = "SHA512";
-    m[String(DigestId.SM3)] = "SM3";
-    return m;
-  }, []);
-
-  return {
-    getName: (t: string | number) => {
-      const x = String(t);
-      if (x in m) {
-        return m[x];
-      }
-      return x;
-    },
-  };
-}
-
-function DisplayDigestResult(props: { item: DigestResult }) {
-  const { getName } = useHashAlgNameMap();
-
-  return (
-    <Box>
-      <Box>{getName(props.item.algorithmName)}</Box>
-      <Box sx={{ marginTop: "6px", wordBreak: "break-all" }}>
-        {toHexString(props.item.value)}
-      </Box>
-    </Box>
-  );
-}
-
 function FileDigestResult(props: { file: LoadedFile; checkflags: BitMap }) {
-  const digestQuery = useQuery({
-    queryKey: [
-      "file",
-      props.file.file.name,
-      props.file.data.byteLength,
-      props.checkflags,
-    ],
-    queryFn: () => {
-      return props.file.data.byteLength > 0
-        ? computeDigest(props.file.data, props.checkflags)
-        : Promise.resolve([]);
-    },
-  });
-
   return (
     <Box>
       <Box>
@@ -122,20 +74,22 @@ function FileDigestResult(props: { file: LoadedFile; checkflags: BitMap }) {
           rowGap: "16px",
         }}
       >
-        {!props.checkflags ? (
-          "请选择算法"
-        ) : digestQuery.isLoading ? (
-          <Delayed delayMs={1000}>
-            <LinearProgress />
-          </Delayed>
-        ) : (
-          (digestQuery.data ?? []).map((digestResult) => (
-            <DisplayDigestResult
-              key={digestResult.algorithmName}
-              item={digestResult}
-            />
-          ))
-        )}
+        {!props.checkflags
+          ? "请选择算法"
+          : bitmap_get_selecteds(props.checkflags).map((algId: DigestId) => {
+              return (
+                <Fragment key={algId}>
+                  {props.file.data && (
+                    <Box>
+                      <Box>
+                        <AlgorithmName algId={algId} />
+                      </Box>
+                      <Digest data={props.file.data} algorithm={algId} />
+                    </Box>
+                  )}
+                </Fragment>
+              );
+            })}
       </Box>
     </Box>
   );
@@ -143,16 +97,10 @@ function FileDigestResult(props: { file: LoadedFile; checkflags: BitMap }) {
 
 export function Main() {
   const [inputType, setInputType] = useState<InputType>(allInputTypes[0]);
-  const [checkflags, setCheck] = useState<BitMap>(bitmap_new);
+  const [checkflags, setCheck] = useState<BitMap>(() =>
+    bitmap_new(Math.max(...allDigestAlgs))
+  );
   const [text, setText] = useState("");
-  const textDigestQuery = useQuery({
-    queryKey: ["text", text, checkflags],
-    queryFn: () => {
-      const enc = new TextEncoder();
-      const utf8Data = enc.encode(text);
-      return utf8Data.length > 0 ? computeDigest(utf8Data, checkflags) : [];
-    },
-  });
 
   const [loadedFiles, setLoadedFiles] = useState<LoadedFile[]>([]);
 
@@ -380,15 +328,18 @@ export function Main() {
             }}
           >
             {inputType === InputType.Text ? (
-              textDigestQuery.isLoading ? (
-                <Delayed delayMs={3000}>
-                  <LinearProgress />
-                </Delayed>
-              ) : (
-                textDigestQuery.data.map((item) => (
-                  <DisplayDigestResult key={item.algorithmName} item={item} />
-                ))
-              )
+              bitmap_get_selecteds(checkflags).map((algId: DigestId) => (
+                <Fragment key={algId}>
+                  {text.length > 0 && (
+                    <Box>
+                      <Box>
+                        <AlgorithmName algId={algId} />
+                      </Box>
+                      <Digest data={text} algorithm={algId} />
+                    </Box>
+                  )}
+                </Fragment>
+              ))
             ) : inputType === InputType.File ? (
               loadedFiles
                 .filter((f) => f.data !== undefined)
