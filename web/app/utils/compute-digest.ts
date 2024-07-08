@@ -1,4 +1,6 @@
+import { MutableRefObject } from "react";
 import { DigestId, DigestResult } from "../types";
+import { toHex } from "./format";
 
 const default_alignment = 64;
 const size_per_page = 2 ** 16;
@@ -48,14 +50,20 @@ export enum HashProcessStage {
 
 export function computeDigest(
   inputData: Uint8Array,
-  algId: DigestId
+  algId: DigestId,
+  elemRef?: MutableRefObject<HTMLDivElement | null>
 ): ReadableStream<Uint8Array> {
   const initial_pages = 2;
   const shm0 = new WebAssembly.Memory({
     initial: initial_pages,
   });
 
+  let stream_state = { closed: false };
+
   return new ReadableStream({
+    cancel: () => {
+      stream_state.closed = true;
+    },
     pull: (controller) => {
       return WebAssembly.instantiateStreaming(fetch(pathToToolchainWasm), {
         importobjs: { shm0 },
@@ -71,7 +79,13 @@ export function computeDigest(
 
             const result_len = get_result_len_by_alg_id(alg_id);
             const result_buf = new Uint8Array(shm0.buffer, offset, result_len);
-            controller.enqueue(result_buf);
+            if (!stream_state.closed) {
+              if (elemRef?.current) {
+                console.debug("update");
+                elemRef.current.textContent = toHex(result_buf);
+              }
+              controller.enqueue(result_buf);
+            }
           },
         },
       })
@@ -116,8 +130,10 @@ export function computeDigest(
 
           const result_len = get_result_len_by_alg_id(algId);
           const result = new Uint8Array(shm0.buffer, result_buf, result_len);
-          controller.enqueue(result);
-          controller.close();
+          if (!stream_state.closed) {
+            controller.enqueue(result);
+            controller.close();
+          }
         })
         .catch((e) => {
           console.error(e);

@@ -1,42 +1,49 @@
-import { useEffect, useRef } from "react";
+import { MutableRefObject, useEffect, useRef } from "react";
 import { DigestId } from "../types";
 import { computeDigest } from "../utils/compute-digest";
 import { Box } from "@mui/material";
 import { toHex } from "../utils/format";
+
+type StreamEnclosure = {
+  stream: ReadableStream<Uint8Array>;
+  reader: ReadableStreamDefaultReader | null;
+};
+
+function cancelStream(streamRef: MutableRefObject<StreamEnclosure | null>) {
+  if (streamRef.current) {
+    streamRef.current.reader?.cancel();
+    streamRef.current.reader?.releaseLock();
+    streamRef.current.stream.cancel();
+    streamRef.current = null;
+  }
+}
 
 export function Digest(props: {
   data: Uint8Array | string;
   algorithm: DigestId;
 }) {
   const { data, algorithm } = props;
-  const streamRef = useRef<{
-    stream: ReadableStream<Uint8Array>;
-    reader: ReadableStreamDefaultReader | null;
-  } | null>(null);
+  const streamRef = useRef<StreamEnclosure | null>(null);
 
   const eleRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (streamRef.current) {
-      streamRef.current.reader.cancel();
-      streamRef.current = null;
-    }
+    cancelStream(streamRef);
 
     const length = typeof data === "string" ? data.length : data.byteLength;
     if (length > 0) {
       const enc = new TextEncoder();
       const buf = typeof data === "string" ? enc.encode(data) : data;
-      const stream = computeDigest(buf, algorithm);
+      const stream = computeDigest(buf, algorithm, eleRef);
       const reader = stream.getReader();
       const onData = (chunk: ReadableStreamReadResult<Uint8Array>) => {
-        if (chunk.done) {
-          return;
+        if (chunk.value && eleRef.current) {
+          const hex = toHex(chunk.value);
+          eleRef.current.textContent = hex;
         }
 
-        if (chunk.value) {
-          if (eleRef.current) {
-            eleRef.current.textContent = toHex(chunk.value);
-          }
+        if (chunk.done) {
+          return;
         }
 
         reader.read().then(onData);
@@ -50,12 +57,7 @@ export function Digest(props: {
     }
 
     return () => {
-      if (streamRef.current) {
-        if (streamRef.current.reader) {
-          streamRef.current.reader.cancel();
-        }
-        streamRef.current = null;
-      }
+      cancelStream(streamRef);
     };
   }, [data, algorithm]);
 
