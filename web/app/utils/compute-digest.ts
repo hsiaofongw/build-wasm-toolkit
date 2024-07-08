@@ -35,10 +35,6 @@ function get_result_len_by_alg_id(alg_id: DigestId): number {
   }
 }
 
-function format_addr(x: number) {
-  return `0x${x.toString(16).padStart(8, "0")}`;
-}
-
 function alignToMultiplesOf(size: number, n: number) {
   return Math.ceil(size / n) * n;
 }
@@ -52,72 +48,81 @@ export enum HashProcessStage {
 
 export function computeDigest(
   inputData: Uint8Array,
-  algId: DigestId,
-  onData?: (data: Uint8Array, stage: HashProcessStage) => void
-): Promise<Uint8Array> {
+  algId: DigestId
+): ReadableStream<Uint8Array> {
   const initial_pages = 2;
   const shm0 = new WebAssembly.Memory({
     initial: initial_pages,
   });
 
-  const result_len = get_result_len_by_alg_id(algId);
+  return new ReadableStream({
+    pull: (controller) => {
+      return WebAssembly.instantiateStreaming(fetch(pathToToolchainWasm), {
+        importobjs: { shm0 },
+        env: {
+          on_hash_value_update: (
+            offset: number,
+            alg_id: DigestId,
+            stage: HashProcessStage
+          ) => {
+            if (stage === HashProcessStage.HASH_STAGE_COMPLETE) {
+              return;
+            }
 
-  return WebAssembly.instantiateStreaming(fetch(pathToToolchainWasm), {
-    importobjs: { shm0 },
-    env: {
-      on_hash_value_update: (
-        offset: number,
-        alg_id: DigestId,
-        stage: HashProcessStage
-      ) => {
-        const result_buf = new Uint8Array(shm0.buffer, offset, result_len);
-        onData?.(result_buf, stage);
-      },
+            const result_len = get_result_len_by_alg_id(alg_id);
+            const result_buf = new Uint8Array(shm0.buffer, offset, result_len);
+            controller.enqueue(result_buf);
+          },
+        },
+      })
+        .then((obj: any) => {
+          const first_addr = obj.instance.exports.get_first_usable_address();
+          if (first_addr === undefined) {
+            throw new Error("failed to get first usable address.");
+          }
+
+          const msg_len = inputData.length;
+
+          const msg_buf = alignToMultiplesOf(first_addr + 1, default_alignment);
+          const result_buf_estimate = alignToMultiplesOf(
+            msg_buf + msg_len,
+            default_alignment
+          );
+
+          const size_needed = alignToMultiplesOf(
+            result_buf_estimate +
+              Math.max(...Object.values(size_per_algorithm)),
+            default_alignment
+          );
+          const initial_size = initial_pages * size_per_page;
+          if (size_needed >= initial_size) {
+            const need_more = Math.max(1, size_needed - initial_size);
+            const need_more_pages = Math.ceil(need_more / size_per_page);
+            if (obj.instance.exports.getmorepages(need_more_pages) < 0) {
+              throw new Error("failed to get more pages.");
+            }
+          }
+
+          const dview = new DataView(shm0.buffer);
+          for (let i = 0; i < msg_len; ++i) {
+            dview.setUint8(msg_buf + i, inputData[i]);
+          }
+
+          const result_buf = obj.instance.exports.initiate_buffer_hashing(
+            msg_buf,
+            msg_len,
+            algId
+          );
+
+          const result_len = get_result_len_by_alg_id(algId);
+          const result = new Uint8Array(shm0.buffer, result_buf, result_len);
+          controller.enqueue(result);
+          controller.close();
+        })
+        .catch((e) => {
+          console.error(e);
+          controller.close();
+        });
     },
-  })
-    .then((obj: any) => {
-      const first_addr = obj.instance.exports.get_first_usable_address();
-      if (first_addr === undefined) {
-        throw new Error("failed to get first usable address.");
-      }
-
-      const msg_len = inputData.length;
-
-      const msg_buf = alignToMultiplesOf(first_addr + 1, default_alignment);
-      const result_buf_estimate = alignToMultiplesOf(
-        msg_buf + msg_len,
-        default_alignment
-      );
-
-      const size_needed = alignToMultiplesOf(
-        result_buf_estimate + Math.max(...Object.values(size_per_algorithm)),
-        default_alignment
-      );
-      const initial_size = initial_pages * size_per_page;
-      if (size_needed >= initial_size) {
-        const need_more = Math.max(1, size_needed - initial_size);
-        const need_more_pages = Math.ceil(need_more / size_per_page);
-        if (obj.instance.exports.getmorepages(need_more_pages) < 0) {
-          throw new Error("failed to get more pages.");
-        }
-      }
-
-      const dview = new DataView(shm0.buffer);
-      for (let i = 0; i < msg_len; ++i) {
-        dview.setUint8(msg_buf + i, inputData[i]);
-      }
-
-      const result_buf = obj.instance.exports.initiate_buffer_hashing(
-        msg_buf,
-        msg_len,
-        algId
-      );
-
-      const result = new Uint8Array(shm0.buffer, result_buf);
-      return result;
-    })
-    .catch((e) => {
-      console.error(e);
-      return new Uint8Array(result_len);
-    });
+  });
 }

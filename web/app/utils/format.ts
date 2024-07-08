@@ -23,3 +23,9 @@ export function removeDotZeros(x: string): string {
 export function toPercent(x: number): string {
   return `${removeDotZeros((x * 100).toFixed(2))}%`;
 }
+
+export function toHex(data: Uint8Array) {
+  return Array.from(data)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
