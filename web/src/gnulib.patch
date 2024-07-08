@@ -57,11 +57,11 @@ index 0000000000..bf82a3df30
 +  -o "$scriptDir/$targetName"
 diff --git a/build/clean.sh b/build/clean.sh
 new file mode 100755
-index 0000000000..a38fd31e77
+index 0000000000..ae8b63e9b0
 --- /dev/null
 +++ b/build/clean.sh
 @@ -0,0 +1,9 @@
-+#!/bin/sh
++#!/bin/bash
 +
 +scriptDir=$(dirname $0)
 +
@@ -70,6 +70,17 @@ index 0000000000..a38fd31e77
 +	rm $f
 +done
 +
+diff --git a/build/config.sh b/build/config.sh
+new file mode 100644
+index 0000000000..4e0bf479ba
+--- /dev/null
++++ b/build/config.sh
+@@ -0,0 +1,5 @@
++#!/bin/bash
++
++scriptDir=$(dirname $0)
++
++$scriptDir/../../configure --with-linux-crypto=no --with-openssl=no
 diff --git a/lib/get_more_pages.wat b/lib/get_more_pages.wat
 new file mode 100644
 index 0000000000..572dcb482d
