@@ -2,6 +2,7 @@
 #include <emscripten.h>
 #include <math.h>
 #include <sha256.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
@@ -9,23 +10,7 @@
 void *malloc(size_t size);
 void free(void *);
 
-extern void console_log(void *sbuf, size_t len);
-
-size_t say_hi(char *sbuf, size_t buf_size) {
-  char msg[] = "hi!";
-  console_log(msg, strlen(msg));
-  emscripten_sleep(33);
-  size_t msglen = sizeof(msg);
-  size_t bytes_w = 0;
-  for (int i = 0; i < MIN(buf_size, msglen); ++i) {
-    sbuf[i] = msg[i];
-    ++bytes_w;
-  }
-
-  return bytes_w;
-}
-
-typedef struct {
+typedef struct CksumCalcCtx {
   char *msg_buf;
   size_t msg_len;
   char *result_buf;
@@ -33,13 +18,13 @@ typedef struct {
 } CksumCalcCtx;
 
 enum DigestId {
-  DIGEST_MD5 = 1,
-  DIGEST_SHA1 = 2,
-  DIGEST_SHA224 = 3,
-  DIGEST_SHA256 = 4,
-  DIGEST_SHA384 = 5,
-  DIGEST_SHA512 = 6,
-  DIGEST_SM3 = 7,
+  DIGEST_MD5 = 0,
+  DIGEST_SHA1 = 1,
+  DIGEST_SHA224 = 2,
+  DIGEST_SHA256 = 3,
+  DIGEST_SHA384 = 4,
+  DIGEST_SHA512 = 5,
+  DIGEST_SM3 = 6,
 };
 
 size_t get_result_buf_len(int digest_id) {
@@ -47,11 +32,12 @@ size_t get_result_buf_len(int digest_id) {
     case DIGEST_SHA256:
       return 256 / 8;
     default:
-      char msg[] = 'unknown digest_id';
-      console_log(msg, strlen(msg));
       return 0;
   }
 }
+
+CksumCalcCtx const *dummy_ctx = 0;
+EMSCRIPTEN_KEEPALIVE size_t MSG_BUF_OFFSET = offsetof(CksumCalcCtx, msg_buf);
 
 CksumCalcCtx *create_cksum_calc_ctx(size_t msglen, int digest_id) {
   CksumCalcCtx *ctx = malloc(sizeof(CksumCalcCtx));
@@ -72,3 +58,6 @@ void free_cksum_calc_ctx(CksumCalcCtx *ctx) {
   free(ctx->result_buf);
   free(ctx);
 }
+
+void on_hash_process_block_iterate(uint32_t iter_idx, void *ctx,
+                                   uint32_t alg_id) {}
