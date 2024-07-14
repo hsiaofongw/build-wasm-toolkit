@@ -1,6 +1,6 @@
 window.addEventListener("load", entry);
 
-const wasmFile = "sayhi.wasm";
+const wasmFile = "sayhi1.wasm";
 
 function hexAddr(addr) {
   return `0x${addr.toString(16).padStart(8, "0")}`;
@@ -23,6 +23,12 @@ async function test() {
           `Memory at index: ${idx} has grown! you need to update memory view!`
         );
       },
+      console_log: (buf, len) => {
+        const dec = new TextDecoder();
+        const data = new Uint8Array(shm0.buffer, buf, len);
+        const s = dec.decode(data);
+        console.debug(`Message from VM (length: ${len} bytes): ${s}`);
+      },
     },
   })
     .then((vm) => {
@@ -35,6 +41,7 @@ async function test() {
         `Allocated heap object at: ${hexAddr(str_buf)}, size: ${buf_size}`
       );
 
+      console.debug("Calling sayhi()...");
       const n_bytes_written = vm.instance.exports.say_hi(str_buf, buf_size);
       console.debug(`sayhi() is called! ${n_bytes_written} bytes written.`);
 
