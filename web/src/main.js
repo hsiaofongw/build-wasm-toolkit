@@ -1,77 +1,65 @@
 window.addEventListener("load", entry);
 
-const wasmFile = "sayhi1.wasm";
+const wasmLoaderFile = "sayhi.js";
 
 function hexAddr(addr) {
   return `0x${addr.toString(16).padStart(8, "0")}`;
 }
 
-async function test() {
-  const initial_pages = 256;
-  const maximum_pages = 32768;
+async function main() {
+  const WASMRuntime = Module;
 
-  const shm0 = new WebAssembly.Memory({
-    initial: initial_pages,
-    maximum: maximum_pages,
+  console.log("Loaded WASMRuntime object:", WASMRuntime);
+
+  // console.debug("VM instance initializing...");
+  // WASMRuntime._initialize();
+  // console.debug("VM instance intialized!");
+
+  const buf_size = 3;
+  console.debug(
+    "Allocating heap object that are being use to store string content..."
+  );
+
+  const get_str_buf = WASMRuntime.cwrap("get_str_buf", "number", ["number"], {
+    async: true,
+  });
+  const say_hi = WASMRuntime.cwrap("say_hi", null, ["number", "number"], {
+    async: true,
+  });
+  const free_str_buf = WASMRuntime.cwrap("free_str_buf", null, ["number"], {
+    async: true,
   });
 
-  await WebAssembly.instantiateStreaming(fetch(wasmFile), {
-    env: {
-      memory: shm0,
-      emscripten_notify_memory_growth: (idx) => {
-        window.alert(
-          `Memory at index: ${idx} has grown! you need to update memory view!`
-        );
-      },
-      console_log: (buf, len) => {
-        const dec = new TextDecoder();
-        const data = new Uint8Array(shm0.buffer, buf, len);
-        const s = dec.decode(data);
-        console.debug(`Message from VM (length: ${len} bytes): ${s}`);
-      },
-    },
-  })
-    .then((vm) => {
-      vm.instance.exports._initialize();
-      console.debug("VM instance intialized!");
+  const str_buf = await get_str_buf(buf_size);
+  console.debug(
+    `Allocated heap object at: ${hexAddr(str_buf)}, size: ${buf_size}`
+  );
 
-      const buf_size = 3;
-      const str_buf = vm.instance.exports.get_str_buf(buf_size);
-      console.debug(
-        `Allocated heap object at: ${hexAddr(str_buf)}, size: ${buf_size}`
-      );
+  console.debug("Calling sayhi()...");
+  const n_bytes_written = await say_hi(str_buf, buf_size);
+  console.debug(`sayhi() is called! ${n_bytes_written} bytes written.`);
 
-      console.debug("Calling sayhi()...");
-      const n_bytes_written = vm.instance.exports.say_hi(str_buf, buf_size);
-      console.debug(`sayhi() is called! ${n_bytes_written} bytes written.`);
+  const result_buf = WASMRuntime.HEAPU8.subarray(
+    str_buf,
+    str_buf + n_bytes_written
+  );
+  console.debug("Result is collected!");
 
-      const result_buf = new Uint8Array(shm0.buffer, str_buf, n_bytes_written);
-      console.debug("Result is collected!");
+  console.debug("Try decoding data...");
+  try {
+    const dec = new TextDecoder();
+    const s = dec.decode(result_buf);
+    console.debug("Decoded:", s);
+  } catch (err) {
+    console.error("Failed to decode:", err);
+  }
 
-      console.debug("Try decoding data...");
-      try {
-        const dec = new TextDecoder();
-        const s = dec.decode(result_buf);
-        console.debug("Decoded:", s);
-      } catch (err) {
-        console.error("Failed to decode:", err);
-      }
-
-      console.debug(`Freeing heap object: ${hexAddr(str_buf)}`);
-      vm.instance.exports.free_str_buf(str_buf);
-      console.debug(`Heap object ${hexAddr(str_buf)} is freed now.`);
-    })
-    .catch((e) => {
-      console.error(e);
-      return "";
-    });
-}
-
-async function entry_async() {
-  console.log("WASM file:", wasmFile);
-  await test();
+  console.debug(`Freeing heap object: ${hexAddr(str_buf)}`);
+  await free_str_buf(str_buf);
+  console.debug(`Heap object ${hexAddr(str_buf)} is freed now.`);
 }
 
 function entry() {
-  entry_async();
+  console.log("WASM Loader file:", wasmLoaderFile);
+  Module["onRuntimeInitialized"] = main;
 }
