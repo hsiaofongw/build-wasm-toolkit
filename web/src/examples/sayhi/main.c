@@ -16,7 +16,7 @@ extern void console_log(void *sbuf, size_t len);
 size_t say_hi(char *sbuf, size_t buf_size) {
   char msg[] = "hi!";
   console_log(msg, strlen(msg));
-  emscripten_sleep(2000);
+  emscripten_sleep(33);
   size_t msglen = sizeof(msg);
   size_t bytes_w = 0;
   for (int i = 0; i < MIN(buf_size, msglen); ++i) {

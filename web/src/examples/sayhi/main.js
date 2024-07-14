@@ -9,11 +9,7 @@ function hexAddr(addr) {
 async function main() {
   const WASMRuntime = Module;
 
-  console.log("Loaded WASMRuntime object:", WASMRuntime);
-
-  // console.debug("VM instance initializing...");
-  // WASMRuntime._initialize();
-  // console.debug("VM instance intialized!");
+  console.debug("Loaded WASMRuntime object:", WASMRuntime);
 
   const buf_size = 3;
   console.debug(

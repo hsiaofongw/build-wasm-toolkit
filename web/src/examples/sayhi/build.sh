@@ -14,5 +14,5 @@ emcc \
   -sERROR_ON_UNDEFINED_SYMBOLS=1 \
   -sEXPORTED_RUNTIME_METHODS="[addFunction,ccall,cwrap]" \
   -sALLOW_TABLE_GROWTH=1 \
-  --js-library $scriptDir/my_lib.js \
-  test-malloc.c
+  --js-library $scriptDir/lib.js \
+  main.c
