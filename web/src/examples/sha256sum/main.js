@@ -12,10 +12,8 @@ function toHex(data) {
 
 const DIGEST_SHA256 = 3;
 
-async function main() {
+async function main(Module) {
   const WASMRuntime = Module;
-
-  console.debug("Loaded WASMRuntime object:", WASMRuntime);
 
   const msg = "helloworld";
   const expectedSha256sum =
@@ -69,5 +67,13 @@ async function main() {
 }
 
 function entry() {
-  Module["onRuntimeInitialized"] = main;
+  import("./wasm-loader.mjs")
+    .then((mod) => {
+      return mod.default();
+    })
+    .then((Module) => {
+      console.log("Loaded Module:", Module);
+      console.log("Called Run:", Module.calledRun);
+      main(Module);
+    });
 }

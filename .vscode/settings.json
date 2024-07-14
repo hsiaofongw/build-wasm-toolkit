@@ -2,6 +2,12 @@
   "files.associations": {
     "io_adapter.h": "c",
     "emscripten.h": "c",
-    "config.h": "c"
+    "config.h": "c",
+    "sha256.h": "c",
+    "sha512.h": "c",
+    "sm3.h": "c",
+    "u64.h": "c",
+    "stdio.h": "c",
+    "stdint.h": "c"
   }
 }
