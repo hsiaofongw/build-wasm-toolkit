@@ -10,7 +10,7 @@
 void *malloc(size_t size);
 void free(void *);
 
-typedef struct CksumCalcCtx {
+typedef struct {
   char *msg_buf;
   size_t msg_len;
   char *result_buf;
@@ -36,10 +36,25 @@ size_t get_result_buf_len(int digest_id) {
   }
 }
 
-CksumCalcCtx const *dummy_ctx = 0;
-EMSCRIPTEN_KEEPALIVE size_t MSG_BUF_OFFSET = offsetof(CksumCalcCtx, msg_buf);
+EMSCRIPTEN_KEEPALIVE char *get_msg_buf_addr(CksumCalcCtx *ctx) {
+  return ctx->msg_buf;
+}
 
-CksumCalcCtx *create_cksum_calc_ctx(size_t msglen, int digest_id) {
+EMSCRIPTEN_KEEPALIVE char *get_cksum_result_buf(CksumCalcCtx *ctx) {
+  return ctx->result_buf;
+}
+
+EMSCRIPTEN_KEEPALIVE size_t get_cksum_result_len(CksumCalcCtx *ctx) {
+  return ctx->result_len;
+}
+
+EMSCRIPTEN_KEEPALIVE void set_msg_buf_len(CksumCalcCtx *ctx,
+                                          size_t msg_buf_len) {
+  ctx->msg_len = msg_buf_len;
+}
+
+EMSCRIPTEN_KEEPALIVE CksumCalcCtx *create_cksum_calc_ctx(size_t msglen,
+                                                         int digest_id) {
   CksumCalcCtx *ctx = malloc(sizeof(CksumCalcCtx));
   ctx->msg_buf = malloc(msglen);
   ctx->msg_len = msglen;
@@ -48,12 +63,12 @@ CksumCalcCtx *create_cksum_calc_ctx(size_t msglen, int digest_id) {
   return ctx;
 }
 
-int calculate_sha256sum(CksumCalcCtx *ctx) {
+EMSCRIPTEN_KEEPALIVE int calculate_sha256sum(CksumCalcCtx *ctx) {
   sha256_buffer(ctx->msg_buf, ctx->msg_len, ctx->result_buf);
   return 0;
 }
 
-void free_cksum_calc_ctx(CksumCalcCtx *ctx) {
+EMSCRIPTEN_KEEPALIVE void free_cksum_calc_ctx(CksumCalcCtx *ctx) {
   free(ctx->msg_buf);
   free(ctx->result_buf);
   free(ctx);

@@ -1,61 +1,73 @@
 window.addEventListener("load", entry);
 
-const wasmLoaderFile = "sayhi.js";
-
 function hexAddr(addr) {
   return `0x${addr.toString(16).padStart(8, "0")}`;
 }
+
+function toHex(data) {
+  return Array.from(data)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const DIGEST_SHA256 = 3;
 
 async function main() {
   const WASMRuntime = Module;
 
   console.debug("Loaded WASMRuntime object:", WASMRuntime);
 
-  const buf_size = 3;
+  const msg = "helloworld";
+  const expectedSha256sum =
+    "936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af";
+  const enc = new TextEncoder();
+  const msgbuf = enc.encode(msg);
+  const msgbuflen = msgbuf.length;
   console.debug(
-    "Allocating heap object that are being use to store string content..."
+    "Allocating heap object to store checksum calculate context..."
   );
-
-  const get_str_buf = WASMRuntime.cwrap("get_str_buf", "number", ["number"], {
-    async: true,
-  });
-  const say_hi = WASMRuntime.cwrap("say_hi", null, ["number", "number"], {
-    async: true,
-  });
-  const free_str_buf = WASMRuntime.cwrap("free_str_buf", null, ["number"], {
-    async: true,
-  });
-
-  const str_buf = await get_str_buf(buf_size);
-  console.debug(
-    `Allocated heap object at: ${hexAddr(str_buf)}, size: ${buf_size}`
+  const ctx_buf = await WASMRuntime._create_cksum_calc_ctx(
+    msgbuflen,
+    DIGEST_SHA256
   );
+  console.debug("Allocated context object:", hexAddr(ctx_buf));
 
-  console.debug("Calling sayhi()...");
-  const n_bytes_written = await say_hi(str_buf, buf_size);
-  console.debug(`sayhi() is called! ${n_bytes_written} bytes written.`);
+  const ctx_msg_buf_ptr = await WASMRuntime._get_msg_buf_addr(ctx_buf);
+  console.debug(`ctx_msg_buf_ptr:`, hexAddr(ctx_msg_buf_ptr));
 
-  const result_buf = WASMRuntime.HEAPU8.subarray(
-    str_buf,
-    str_buf + n_bytes_written
-  );
-  console.debug("Result is collected!");
-
-  console.debug("Try decoding data...");
-  try {
-    const dec = new TextDecoder();
-    const s = dec.decode(result_buf);
-    console.debug("Decoded:", s);
-  } catch (err) {
-    console.error("Failed to decode:", err);
+  console.debug("Populating message buffer...");
+  const msgdview = new DataView(msgbuf.buffer);
+  for (let i = 0; i < msgbuflen; ++i) {
+    WASMRuntime.setValue(ctx_msg_buf_ptr + i, msgdview.getUint8(i));
   }
+  await WASMRuntime._set_msg_buf_len(ctx_buf, msgbuflen);
+  console.debug("Message buffer is populated.");
 
-  console.debug(`Freeing heap object: ${hexAddr(str_buf)}`);
-  await free_str_buf(str_buf);
-  console.debug(`Heap object ${hexAddr(str_buf)} is freed now.`);
+  console.debug("Start invoking checksum calculator...");
+  const ret = await WASMRuntime._calculate_sha256sum(ctx_buf);
+  console.debug(`Done, return value: ${ret}`);
+
+  const result_buf = await WASMRuntime._get_cksum_result_buf(ctx_buf);
+  const result_len = await WASMRuntime._get_cksum_result_len(ctx_buf);
+  console.debug(
+    `Extracting result (${result_len} bytes) from:`,
+    hexAddr(result_buf)
+  );
+  const result = WASMRuntime.HEAPU8.subarray(
+    result_buf,
+    result_buf + result_len
+  );
+  const hexResult = toHex(result);
+  console.debug("Got result (in hex):", hexResult);
+  console.debug("As expected:", hexResult === expectedSha256sum);
+
+  console.debug("Freeing context object:", hexAddr(ctx_buf));
+  await WASMRuntime._free_cksum_calc_ctx(ctx_buf);
+  console.debug(`Context object ${hexAddr(ctx_buf)} is freed now.`);
+
+  return;
 }
 
 function entry() {
-  console.log("WASM Loader file:", wasmLoaderFile);
   Module["onRuntimeInitialized"] = main;
 }
