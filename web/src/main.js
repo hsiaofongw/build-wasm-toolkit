@@ -1,87 +1,58 @@
 window.addEventListener("load", entry);
 
-const digestIdSHA256 = 4;
+const wasmFile = "sayhi.wasm";
 
-function alignToMultiplesOf(size, n = 256) {
-  return Math.ceil(size / n) * n;
+function hexAddr(addr) {
+  return `0x${addr.toString(16).padStart(8, "0")}`;
 }
 
-const wasmFile = "out.wasm";
+async function test() {
+  const initial_pages = 256;
+  const maximum_pages = 32768;
 
-const size_per_algorithm = { sha256: 256 / 8 };
-const size_per_page = 2 ** 16;
-
-function toHex(data) {
-  return Array.from(data)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function test(filename) {
-  const data = await fetch(filename)
-    .then((r) => r.arrayBuffer())
-    .then((ab) => new Uint8Array(ab));
-
-  console.log("Filename:", filename);
-  console.log("Size:", data.length);
-
-  const result_len = size_per_algorithm["sha256"];
-
-  const initial_pages = 2;
   const shm0 = new WebAssembly.Memory({
     initial: initial_pages,
+    maximum: maximum_pages,
   });
 
   await WebAssembly.instantiateStreaming(fetch(wasmFile), {
-    importobjs: { shm0: shm0 },
     env: {
-      on_hash_value_update: (offset, alg_id, stage) => {
-        const intermediateDigest = new Uint8Array(
-          shm0.buffer,
-          offset,
-          result_len
-        );
-        console.log(
-          `HEX: ${toHex(
-            intermediateDigest
-          )}, alg_id: ${alg_id}, stage: ${stage}`
+      memory: shm0,
+      emscripten_notify_memory_growth: (idx) => {
+        window.alert(
+          `Memory at index: ${idx} has grown! you need to update memory view!`
         );
       },
     },
   })
-    .then((obj) => {
-      const first_addr = obj.instance.exports.get_first_usable_address();
-      if (first_addr === undefined) {
-        throw new Error("failed to get first usable address.");
-      }
+    .then((vm) => {
+      vm.instance.exports._initialize();
+      console.debug("VM instance intialized!");
 
-      const msg_len = data.length;
-
-      const msg_buf = alignToMultiplesOf(first_addr + 1);
-      const result_buf = alignToMultiplesOf(msg_buf + msg_len);
-
-      const size_needed = alignToMultiplesOf(
-        result_buf + Math.max(...Object.values(size_per_algorithm))
+      const buf_size = 3;
+      const str_buf = vm.instance.exports.get_str_buf(buf_size);
+      console.debug(
+        `Allocated heap object at: ${hexAddr(str_buf)}, size: ${buf_size}`
       );
-      const initial_size = initial_pages * size_per_page;
-      if (size_needed >= initial_size) {
-        const need_more = Math.max(1, size_needed - initial_size);
-        const need_more_pages = Math.ceil(need_more / size_per_page);
-        if (obj.instance.exports.getmorepages(need_more_pages) < 0) {
-          throw new Error("failed to get more pages.");
-        }
+
+      const n_bytes_written = vm.instance.exports.say_hi(str_buf, buf_size);
+      console.debug(`sayhi() is called! ${n_bytes_written} bytes written.`);
+
+      const result_buf = new Uint8Array(shm0.buffer, str_buf, n_bytes_written);
+      console.debug("Result is collected!");
+
+      console.debug("Try decoding data...");
+      try {
+        const dec = new TextDecoder();
+        const s = dec.decode(result_buf);
+        console.debug("Decoded:", s);
+      } catch (err) {
+        console.error("Failed to decode:", err);
       }
 
-      const dview = new DataView(shm0.buffer);
-      for (let i = 0; i < msg_len; ++i) {
-        dview.setUint8(msg_buf + i, data[i]);
-      }
-
-      obj.instance.exports.initiate_buffer_hashing(
-        msg_buf,
-        msg_len,
-        digestIdSHA256
-      );
+      console.debug(`Freeing heap object: ${hexAddr(str_buf)}`);
+      vm.instance.exports.free_str_buf(str_buf);
+      console.debug(`Heap object ${hexAddr(str_buf)} is freed now.`);
     })
     .catch((e) => {
       console.error(e);
@@ -91,7 +62,7 @@ async function test(filename) {
 
 async function entry_async() {
   console.log("WASM file:", wasmFile);
-  await test("test256m.img");
+  await test();
 }
 
 function entry() {
