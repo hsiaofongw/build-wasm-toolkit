@@ -1,6 +1,7 @@
 {
   "files.associations": {
     "io_adapter.h": "c",
-    "emscripten.h": "c"
+    "emscripten.h": "c",
+    "config.h": "c"
   }
 }

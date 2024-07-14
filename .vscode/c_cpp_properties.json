@@ -4,6 +4,7 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/coreutils/gnulib/lib",
                 "${userHome}/projects/emsdk/upstream/emscripten/system/include"
             ],
             "defines": [],
