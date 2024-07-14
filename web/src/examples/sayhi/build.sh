@@ -5,7 +5,7 @@ scriptDir=$(dirname $0)
 emcc \
   -v \
   --no-entry \
-  -o sayhi.js \
+  -o $scriptDir/sayhi.js \
   -sASYNCIFY=1 \
   -sIMPORTED_MEMORY=0 \
   -sEXPORTED_FUNCTIONS="[_say_hi,_get_str_buf,_free_str_buf]" \
@@ -15,4 +15,4 @@ emcc \
   -sEXPORTED_RUNTIME_METHODS="[addFunction,ccall,cwrap]" \
   -sALLOW_TABLE_GROWTH=1 \
   --js-library $scriptDir/lib.js \
-  main.c
+  $scriptDir/main.c
