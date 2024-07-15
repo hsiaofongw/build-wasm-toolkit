@@ -92,6 +92,7 @@ void read_result(void *ctx, uint32_t alg_id, char *result_buf) {
 
 void handle_notify_progress(uint32_t sub_chunks_did, uint32_t total_sub_chunks,
                             void *calc_ctx, void *io_ctx_any) {
+  return;
   uint32_t stride_mask = (1 << 14) - 1;
   if (sub_chunks_did & stride_mask) {
     return;
@@ -110,10 +111,22 @@ void handle_notify_progress(uint32_t sub_chunks_did, uint32_t total_sub_chunks,
 EMSCRIPTEN_KEEPALIVE CksumIOCtx *create_cksum_calc_ctx(size_t msglen,
                                                        int digest_id) {
   CksumIOCtx *io_ctx = malloc(sizeof(CksumIOCtx));
+  if (!io_ctx) {
+    EM_ASM({ console.error('Failed to allocate memory.'); });
+    return 0;
+  }
   io_ctx->msg_buf = malloc(msglen);
+  if (!io_ctx->msg_buf) {
+    EM_ASM({ console.error('Failed to allocate memory.'); });
+    return 0;
+  }
   io_ctx->msg_len = msglen;
   io_ctx->result_len = get_result_buf_len(digest_id);
   io_ctx->result_buf = malloc(io_ctx->result_len);
+  if (!io_ctx->result_buf) {
+    EM_ASM({ console.error('Failed to allocate memory.'); });
+    return 0;
+  }
   io_ctx->alg_id = digest_id;
   io_ctx->notify_progress = handle_notify_progress;
   return io_ctx;

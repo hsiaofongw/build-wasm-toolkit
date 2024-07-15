@@ -78,7 +78,6 @@ async function main(Module) {
   await fetch("test20m.bin")
     .then((r) => {
       const hdrs = r.headers;
-      console.log("Headers:", hdrs);
       const lenStr = hdrs.get("content-length");
       const len = tryParseNum(lenStr);
       if (len !== undefined) {
@@ -120,8 +119,6 @@ async function main(Module) {
 
               fetched += len;
 
-              console.log(`Got ${value.byteLength} bytes data:`, value);
-              console.log(`Progress: ${fetched}/${total}`);
               updateProgress(fetched, total);
             }
 

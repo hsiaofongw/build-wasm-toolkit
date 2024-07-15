@@ -9,6 +9,9 @@ emcc \
   -I$scriptDir/../../../../coreutils/lib \
   --no-entry \
   -o $scriptDir/wasm-loader.mjs \
+  -sASSERTIONS=2 \
+  -sSTACK_OVERFLOW_CHECK=2 \
+  -sCHECK_NULL_WRITES=1 \
   -sASYNCIFY=1 \
   -sIMPORTED_MEMORY=0 \
   -sALLOW_MEMORY_GROWTH=1 \
