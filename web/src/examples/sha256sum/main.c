@@ -92,7 +92,7 @@ void read_result(void *ctx, uint32_t alg_id, char *result_buf) {
 
 void handle_notify_progress(uint32_t sub_chunks_did, uint32_t total_sub_chunks,
                             void *calc_ctx, void *io_ctx_any) {
-  uint32_t stride_mask = (1 << 10) - 1;
+  uint32_t stride_mask = (1 << 14) - 1;
   if (sub_chunks_did & stride_mask) {
     return;
   }
