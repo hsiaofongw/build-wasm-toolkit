@@ -15,14 +15,6 @@
 void *malloc(size_t size);
 void free(void *);
 
-typedef struct {
-  char *msg_buf;
-  size_t msg_len;
-  char *result_buf;
-  size_t result_len;
-  int alg_id;
-} CksumCalcCtx;
-
 size_t get_result_buf_len(int digest_id) {
   switch (digest_id) {
     case DIGEST_MD5:
@@ -45,43 +37,57 @@ size_t get_result_buf_len(int digest_id) {
   }
 }
 
-EMSCRIPTEN_KEEPALIVE char *get_msg_buf_addr(CksumCalcCtx *ctx) {
-  return ctx->msg_buf;
+EMSCRIPTEN_KEEPALIVE char *get_msg_buf_addr(CksumIOCtx *io_ctx) {
+  return io_ctx->msg_buf;
 }
 
-EMSCRIPTEN_KEEPALIVE char *get_cksum_result_buf(CksumCalcCtx *ctx) {
-  return ctx->result_buf;
+EMSCRIPTEN_KEEPALIVE char *get_cksum_result_buf(CksumIOCtx *io_ctx) {
+  return io_ctx->result_buf;
 }
 
-EMSCRIPTEN_KEEPALIVE size_t get_cksum_result_len(CksumCalcCtx *ctx) {
-  return ctx->result_len;
+EMSCRIPTEN_KEEPALIVE size_t get_cksum_result_len(CksumIOCtx *io_ctx) {
+  return io_ctx->result_len;
 }
 
-EMSCRIPTEN_KEEPALIVE void set_msg_buf_len(CksumCalcCtx *ctx,
+EMSCRIPTEN_KEEPALIVE void set_msg_buf_len(CksumIOCtx *io_ctx,
                                           size_t msg_buf_len) {
-  ctx->msg_len = msg_buf_len;
+  io_ctx->msg_len = msg_buf_len;
 }
 
-EMSCRIPTEN_KEEPALIVE CksumCalcCtx *create_cksum_calc_ctx(size_t msglen,
-                                                         int digest_id) {
-  CksumCalcCtx *ctx = malloc(sizeof(CksumCalcCtx));
-  ctx->msg_buf = malloc(msglen);
-  ctx->msg_len = msglen;
-  ctx->result_len = get_result_buf_len(digest_id);
-  ctx->result_buf = malloc(ctx->result_len);
-  ctx->alg_id = digest_id;
-  return ctx;
+EMSCRIPTEN_KEEPALIVE CksumIOCtx *create_cksum_calc_ctx(size_t msglen,
+                                                       int digest_id) {
+  CksumIOCtx *io_ctx = malloc(sizeof(CksumIOCtx));
+  io_ctx->msg_buf = malloc(msglen);
+  io_ctx->msg_len = msglen;
+  io_ctx->result_len = get_result_buf_len(digest_id);
+  io_ctx->result_buf = malloc(io_ctx->result_len);
+  io_ctx->alg_id = digest_id;
+  io_ctx->notify_progress = handle_notify_progress;
+  return io_ctx;
 }
 
-EMSCRIPTEN_KEEPALIVE int calculate_sha256sum(CksumCalcCtx *ctx) {
-  sha256_buffer(ctx->msg_buf, ctx->msg_len, ctx->result_buf);
+EMSCRIPTEN_KEEPALIVE int calculate_checksum(CksumIOCtx *io_ctx) {
+  switch (io_ctx->alg_id) {
+    case DIGEST_MD5:
+    case DIGEST_SHA1:
+    case DIGEST_SHA224:
+    case DIGEST_SHA256:
+      sha256_calc(io_ctx);
+      break;
+    case DIGEST_SHA384:
+    case DIGEST_SHA512:
+    case DIGEST_SM3:
+    default:
+      EM_ASM({ console.error('Unknown digest_id'); });
+      return -1;
+  }
   return 0;
 }
 
-EMSCRIPTEN_KEEPALIVE void free_cksum_calc_ctx(CksumCalcCtx *ctx) {
-  free(ctx->msg_buf);
-  free(ctx->result_buf);
-  free(ctx);
+EMSCRIPTEN_KEEPALIVE void free_cksum_calc_ctx(CksumIOCtx *io_ctx) {
+  free(io_ctx->msg_buf);
+  free(io_ctx->result_buf);
+  free(io_ctx);
 }
 
 void read_result(void *ctx, uint32_t alg_id, char *result_buf) {
@@ -108,21 +114,19 @@ void read_result(void *ctx, uint32_t alg_id, char *result_buf) {
       sm3_read_ctx(ctx, result_buf);
       break;
     default:
+      EM_ASM({ console.error('Unknown digest_id'); });
       return;
   }
-
-  // on_hash_value_update_wrap(result_buf, alg_id, stage);
 }
 
-void on_hash_process_block_iterate(uint32_t iter_idx, void *ctx,
-                                   uint32_t alg_id) {
+void handle_notify_progress(uint32_t sub_chunks_did, uint32_t total_chunks,
+                            void *calc_ctx, CksumIOCtx *io_ctx) {
   uint32_t stride_mask = (1 << 14) - 1;
-  if (iter_idx & stride_mask) {
+  if (sub_chunks_did & stride_mask) {
     return;
   }
 
-  // read_result(ctx, alg_id, 0);
-
-  // int sleep_ms = 33;
-  // emscripten_sleep(sleep_ms);
+  read_result(calc_ctx, io_ctx->alg_id, io_ctx->result_buf);
+  int sleep_ms = 33;
+  emscripten_sleep(sleep_ms);
 }
