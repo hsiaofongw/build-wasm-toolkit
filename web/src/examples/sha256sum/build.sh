@@ -14,7 +14,7 @@ emcc \
   -sALLOW_MEMORY_GROWTH=1 \
   -sINVOKE_RUN=0 \
   -sERROR_ON_UNDEFINED_SYMBOLS=1 \
-  -sEXPORTED_RUNTIME_METHODS="[ccall,cwrap,setValue,getValue]" \
+  -sEXPORTED_RUNTIME_METHODS="[ccall,cwrap,setValue,getValue,addFunction]" \
   -sALLOW_TABLE_GROWTH=1 \
   $scriptDir/../../../../coreutils/gnulib/lib/byteswap.c \
   $scriptDir/../../../../coreutils/gnulib/lib/md5.c \

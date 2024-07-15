@@ -11,6 +11,9 @@ function toHex(data) {
 }
 
 const DIGEST_SHA256 = 3;
+const chunksDidId = "chunks_did";
+const chunksTotalId = "chunks_total";
+const resultId = "results";
 
 async function main(Module) {
   const WASMRuntime = Module;
@@ -41,8 +44,31 @@ async function main(Module) {
   await WASMRuntime._set_msg_buf_len(ctx_buf, msgbuflen);
   console.debug("Message buffer is populated.");
 
+  console.debug("Setting up progress report handler...");
+  const report_handler_func_ptr = WASMRuntime.addFunction(
+    (chunks_did, total_chunks, io_ctx, result_buf, result_len) => {
+      const chunksDidEle = window.document.getElementById(chunksDidId);
+      chunksDidEle.textContent = String(chunks_did);
+      const chunksTotalEle = window.document.getElementById(chunksTotalId);
+      chunksTotalEle.textContent = String(total_chunks);
+      const resultsEle = window.document.getElementById(resultId);
+      const result_u8 = WASMRuntime.HEAPU8.subarray(
+        result_buf,
+        result_buf + result_len
+      );
+      resultsEle.textContent = toHex(result_u8);
+    },
+    "viiiii"
+  );
+  console.debug("Got function pointer:", report_handler_func_ptr);
+  await WASMRuntime._set_progress_report_handler(
+    ctx_buf,
+    report_handler_func_ptr
+  );
+  console.debug("Progress handler is set.");
+
   console.debug("Start invoking checksum calculator...");
-  const ret = await WASMRuntime._calculate_sha256sum(ctx_buf);
+  const ret = await WASMRuntime._calculate_checksum(ctx_buf);
   console.debug(`Done, return value: ${ret}`);
 
   const result_buf = await WASMRuntime._get_cksum_result_buf(ctx_buf);
